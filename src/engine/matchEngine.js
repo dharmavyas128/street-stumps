@@ -1,0 +1,967 @@
+/**
+ * matchEngine.js — the pure, deterministic state engine for Cyber-Field.
+ *
+ * Design principles
+ * -----------------
+ * 1. PURE REDUCER: `matchReducer(state, action)` never mutates its input. Each
+ *    delivery handler works on a `structuredClone` of the state, so the previous
+ *    state object stays frozen-in-time and can be pushed onto the history stack
+ *    for a perfect, instant Undo (see useMatchEngine.js).
+ * 2. SINGLE SOURCE OF TRUTH: every derived display value (overs text, run rate,
+ *    required run rate, target) is computed by a *selector* from raw state —
+ *    runs, wickets, legalBalls — never stored redundantly.
+ * 3. RULE BENDER: all the configurable rules (overs, players, extra penalty,
+ *    last-man-standing, retirement threshold) flow through `config` and are
+ *    honoured consistently across both innings.
+ *
+ * State shape
+ * -----------
+ * {
+ *   status: 'setup' | 'live' | 'innings-break' | 'complete',
+ *   config: {
+ *     teams: { A: {id,name}, B: {id,name} },
+ *     totalOvers, playersPerTeam,
+ *     extraPenalty (1|2), lastManStanding (bool),
+ *     retirementThreshold (number|null),
+ *     tossWinnerId, // who bats first
+ *   },
+ *   inningsIndex: 0 | 1,
+ *   target: number | null,
+ *   innings: [InningsState, InningsState | null],
+ *   result: { winnerId|null, text, type } | null,
+ * }
+ *
+ * InningsState {
+ *   battingTeamId, bowlingTeamId,
+ *   runs, wickets, legalBalls,
+ *   extras: { wides, noBalls, byes, legByes },
+ *   batsmen: [{ id, name, runs, balls, fours, sixes,
+ *               status: 'did_not_bat'|'not_out'|'out'|'retired',
+ *               dismissal: {type,label}|null }],
+ *   strikerId, nonStrikerId,
+ *   nextBatsmanIndex,
+ *   timeline: [DeliveryRecord],
+ * }
+ */
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+export const EXTRA = {
+  WIDE: 'wide',
+  NO_BALL: 'no_ball',
+  BYE: 'bye',
+  LEG_BYE: 'leg_bye',
+};
+
+export const DISMISSAL_TYPES = [
+  { id: 'bowled', label: 'Bowled' },
+  { id: 'caught', label: 'Caught' },
+  { id: 'lbw', label: 'LBW' },
+  { id: 'run_out', label: 'Run Out' },
+  { id: 'stumped', label: 'Stumped' },
+  { id: 'hit_wicket', label: 'Hit Wicket' },
+];
+
+export const BATSMAN_STATUS = {
+  DID_NOT_BAT: 'did_not_bat',
+  NOT_OUT: 'not_out',
+  OUT: 'out',
+  RETIRED: 'retired',
+};
+
+// ---------------------------------------------------------------------------
+// Factories
+// ---------------------------------------------------------------------------
+
+/** The pristine pre-match state — the app boots into the setup screen. */
+export function createEmptyState() {
+  return {
+    status: 'setup',
+    config: null,
+    inningsIndex: 0,
+    target: null,
+    innings: [null, null],
+    result: null,
+  };
+}
+
+function makeLineup(teamId, count, names = []) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `${teamId}_b${i}`,
+    name: (names[i] && String(names[i]).trim()) || `Batter ${i + 1}`,
+    runs: 0,
+    balls: 0,
+    fours: 0,
+    sixes: 0,
+    status: BATSMAN_STATUS.DID_NOT_BAT,
+    dismissal: null,
+    isCaptain: false,
+  }));
+}
+
+function makeInnings(config, battingTeamId, bowlingTeamId) {
+  const count = config.playersPerTeam;
+  const names = config.players?.[battingTeamId] || [];
+  const batsmen = makeLineup(battingTeamId, count, names);
+  const hasPartner = count > 1;
+
+  batsmen[0].status = BATSMAN_STATUS.NOT_OUT;
+  if (hasPartner) batsmen[1].status = BATSMAN_STATUS.NOT_OUT;
+
+  const captainIdx = config.captains?.[battingTeamId];
+  if (captainIdx != null && batsmen[captainIdx]) batsmen[captainIdx].isCaptain = true;
+
+  return {
+    battingTeamId,
+    bowlingTeamId,
+    runs: 0,
+    wickets: 0,
+    legalBalls: 0,
+    extras: { wides: 0, noBalls: 0, byes: 0, legByes: 0 },
+    batsmen,
+    strikerId: batsmen[0].id,
+    nonStrikerId: hasPartner ? batsmen[1].id : null,
+    nextBatsmanIndex: hasPartner ? 2 : 1,
+    timeline: [],
+    // ---- bowling ----
+    bowlers: [], // stat objects, created on first selection
+    currentBowlerId: null,
+    lastBowlerId: null, // bowler of the previous over (can't bowl two in a row)
+    currentOverConceded: 0, // runs charged to the bowler this over (for maidens)
+  };
+}
+
+/** Normalise raw setup-form values into a clean config object. */
+export function buildConfig(form) {
+  const teamAName = (form.teamAName || 'Team A').trim() || 'Team A';
+  const teamBName = (form.teamBName || 'Team B').trim() || 'Team B';
+  const playersPerTeam = clampInt(form.playersPerTeam, 1, 15, 6);
+
+  return {
+    teams: {
+      A: { id: 'A', name: teamAName },
+      B: { id: 'B', name: teamBName },
+    },
+    totalOvers: clampInt(form.totalOvers, 1, 100, 6),
+    playersPerTeam,
+    lastManStanding: !!form.lastManStanding,
+    retirementThreshold:
+      form.retirementThreshold && Number(form.retirementThreshold) > 0
+        ? Number(form.retirementThreshold)
+        : null,
+    players: {
+      A: normalizeNames(form.players?.A, playersPerTeam),
+      B: normalizeNames(form.players?.B, playersPerTeam),
+    },
+    captains: {
+      A: normalizeCaptain(form.captains?.A, playersPerTeam),
+      B: normalizeCaptain(form.captains?.B, playersPerTeam),
+    },
+    toss: normalizeToss(form.toss),
+  };
+}
+
+/** Build a `count`-long list of player names, filling blanks with defaults. */
+function normalizeNames(arr, count) {
+  return Array.from({ length: count }, (_, i) => {
+    const v = arr && arr[i] != null ? String(arr[i]).trim() : '';
+    return v || `Batter ${i + 1}`;
+  });
+}
+
+/** A captain is a player index within the side, or null if unassigned. */
+function normalizeCaptain(v, count) {
+  if (v == null || v === '') return null; // guard: Number(null) === 0 would falsely pick player 0
+  const n = Number(v);
+  if (Number.isInteger(n) && n >= 0 && n < count) return n;
+  return null;
+}
+
+function normalizeToss(toss) {
+  const winnerId = toss?.winnerId === 'B' ? 'B' : 'A';
+  const decision = toss?.decision === 'bowl' ? 'bowl' : 'bat';
+  const callerId = toss?.callerId === 'B' ? 'B' : 'A';
+  const call = toss?.call === 'tails' ? 'tails' : 'heads';
+  return { winnerId, decision, callerId, call };
+}
+
+/** Human-readable toss result, e.g. "Neon Knights won the toss & chose to bowl". */
+export function tossSummary(config) {
+  if (!config?.toss) return '';
+  const winner = config.teams[config.toss.winnerId].name;
+  const verb = config.toss.decision === 'bat' ? 'bat' : 'bowl';
+  return `${winner} won the toss & chose to ${verb}`;
+}
+
+function clampInt(v, min, max, fallback) {
+  const n = Math.round(Number(v));
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+// ---------------------------------------------------------------------------
+// Small helpers (operate on a mutable *clone* inside the reducer)
+// ---------------------------------------------------------------------------
+
+export function maxWickets(config) {
+  const lim = config.lastManStanding
+    ? config.playersPerTeam
+    : config.playersPerTeam - 1;
+  return Math.max(1, lim);
+}
+
+export function currentInnings(state) {
+  return state.innings[state.inningsIndex] || null;
+}
+
+function getBatsman(inn, id) {
+  return inn.batsmen.find((b) => b.id === id) || null;
+}
+
+function getStriker(inn) {
+  return getBatsman(inn, inn.strikerId);
+}
+
+function rotateStrike(inn) {
+  if (!inn.nonStrikerId) return; // lone batter (last-man-standing) — no rotation
+  const tmp = inn.strikerId;
+  inn.strikerId = inn.nonStrikerId;
+  inn.nonStrikerId = tmp;
+}
+
+/** Pull the next yet-to-bat batsman in, or null if the lineup is exhausted. */
+function findNextBatsman(inn) {
+  for (let i = inn.nextBatsmanIndex; i < inn.batsmen.length; i += 1) {
+    if (inn.batsmen[i].status === BATSMAN_STATUS.DID_NOT_BAT) {
+      inn.nextBatsmanIndex = i + 1;
+      return inn.batsmen[i];
+    }
+  }
+  inn.nextBatsmanIndex = inn.batsmen.length;
+  return null;
+}
+
+/**
+ * Bring a fresh batsman into the slot vacated by `vacatingId`.
+ * Returns the incoming batsman, or null if none are left.
+ */
+function bringInBatsman(inn, vacatingId) {
+  const next = findNextBatsman(inn);
+  if (!next) {
+    // No replacement available — the surviving partner (if any) bats on alone.
+    if (inn.strikerId === vacatingId) inn.strikerId = inn.nonStrikerId;
+    inn.nonStrikerId = null;
+    return null;
+  }
+  next.status = BATSMAN_STATUS.NOT_OUT;
+  if (inn.strikerId === vacatingId) inn.strikerId = next.id;
+  else if (inn.nonStrikerId === vacatingId) inn.nonStrikerId = next.id;
+  return next;
+}
+
+/**
+ * Bring a SPECIFIC chosen batsman into the slot vacated by `vacatedId`.
+ * Falls back to a lone batter (last-man-standing) when no valid pick is given.
+ */
+function bringInSpecific(inn, vacatedId, newId) {
+  const slot =
+    inn.strikerId === vacatedId
+      ? 'striker'
+      : inn.nonStrikerId === vacatedId
+        ? 'nonStriker'
+        : null;
+  if (!slot) return;
+
+  const incoming = newId ? getBatsman(inn, newId) : null;
+  const eligible =
+    incoming &&
+    (incoming.status === BATSMAN_STATUS.DID_NOT_BAT ||
+      incoming.status === BATSMAN_STATUS.RETIRED);
+
+  if (eligible) {
+    incoming.status = BATSMAN_STATUS.NOT_OUT;
+    if (slot === 'striker') inn.strikerId = newId;
+    else inn.nonStrikerId = newId;
+  } else {
+    // No valid replacement — surviving partner bats on alone.
+    if (slot === 'striker') inn.strikerId = inn.nonStrikerId;
+    inn.nonStrikerId = null;
+  }
+}
+
+/** Auto-retire the scoring batsman once they cross the threshold. */
+function maybeRetire(inn, config, scorerId) {
+  if (!config.retirementThreshold) return;
+  const scorer = getBatsman(inn, scorerId);
+  if (!scorer || scorer.status !== BATSMAN_STATUS.NOT_OUT) return;
+  if (scorer.runs < config.retirementThreshold) return;
+
+  // Only retire if there's a replacement waiting — never strand the side.
+  // Peek for the next batsman WITHOUT committing any pointer changes first.
+  let nextIdx = -1;
+  for (let i = inn.nextBatsmanIndex; i < inn.batsmen.length; i += 1) {
+    if (inn.batsmen[i].status === BATSMAN_STATUS.DID_NOT_BAT) {
+      nextIdx = i;
+      break;
+    }
+  }
+  if (nextIdx === -1) return; // no one to replace them — they bat on.
+
+  const incoming = inn.batsmen[nextIdx];
+  scorer.status = BATSMAN_STATUS.RETIRED;
+  incoming.status = BATSMAN_STATUS.NOT_OUT;
+  inn.nextBatsmanIndex = nextIdx + 1;
+  if (inn.strikerId === scorer.id) inn.strikerId = incoming.id;
+  else if (inn.nonStrikerId === scorer.id) inn.nonStrikerId = incoming.id;
+}
+
+function endOfOver(inn) {
+  return inn.legalBalls > 0 && inn.legalBalls % 6 === 0;
+}
+
+// ---------------------------------------------------------------------------
+// Bowling
+// ---------------------------------------------------------------------------
+
+function getCurrentBowler(inn) {
+  if (!inn.currentBowlerId) return null;
+  return inn.bowlers.find((b) => b.id === inn.currentBowlerId) || null;
+}
+
+/** Index of a batsman/bowler id of the form `${teamId}_b${i}`. */
+function idIndex(playerId) {
+  const i = Number(String(playerId).split('_b')[1]);
+  return Number.isInteger(i) ? i : -1;
+}
+
+/** Set the bowler for the upcoming over, creating a stat record on first use. */
+function selectBowler(inn, config, bowlerId) {
+  let entry = inn.bowlers.find((b) => b.id === bowlerId);
+  if (!entry) {
+    const roster = config.players?.[inn.bowlingTeamId] || [];
+    const idx = idIndex(bowlerId);
+    entry = {
+      id: bowlerId,
+      name: roster[idx] || `Bowler ${idx + 1}`,
+      balls: 0,
+      runs: 0, // runs charged to the bowler (off bat + wides + no-balls)
+      wickets: 0,
+      maidens: 0,
+    };
+    inn.bowlers.push(entry);
+  }
+  inn.currentBowlerId = bowlerId;
+}
+
+/** Close out an over: tally a maiden, rotate strike, and clear the bowler. */
+function completeOver(inn) {
+  const bowler = getCurrentBowler(inn);
+  if (bowler && inn.currentOverConceded === 0) bowler.maidens += 1;
+  inn.lastBowlerId = inn.currentBowlerId;
+  inn.currentBowlerId = null;
+  inn.currentOverConceded = 0;
+  rotateStrike(inn);
+}
+
+// ---------------------------------------------------------------------------
+// Delivery handlers — each receives the live innings clone and mutates it
+// ---------------------------------------------------------------------------
+
+function handleRuns(inn, config, runs) {
+  const scorer = getStriker(inn);
+  const scorerId = scorer.id;
+  const bowler = getCurrentBowler(inn);
+
+  scorer.runs += runs;
+  scorer.balls += 1;
+  if (runs === 4) scorer.fours += 1;
+  if (runs === 6) scorer.sixes += 1;
+
+  inn.runs += runs;
+  inn.legalBalls += 1;
+
+  if (bowler) {
+    bowler.balls += 1;
+    bowler.runs += runs;
+    inn.currentOverConceded += runs;
+  }
+
+  inn.timeline.push({
+    kind: 'run',
+    runs,
+    boundary: runs === 4 || runs === 6,
+    over: oversText(inn.legalBalls),
+    batsmanId: scorerId,
+    bowlerId: inn.currentBowlerId,
+  });
+
+  if (runs % 2 === 1) rotateStrike(inn);
+  maybeRetire(inn, config, scorerId);
+  if (endOfOver(inn)) completeOver(inn);
+}
+
+/**
+ * Extras now carry a run amount on top of the standard 1-run penalty:
+ *   • No-ball  → 1 (penalty) + runs the batter HIT off it (credited to batter)
+ *   • Wide     → 1 (penalty) + extra runs the team ran (all to Extras)
+ *   • Bye/Leg-bye → runs run (to Extras); a legal delivery
+ * Wides & no-balls don't count as a ball; byes/leg-byes do.
+ */
+function handleExtra(inn, type, extraRuns = 0) {
+  const bowler = getCurrentBowler(inn);
+  const add = Math.max(0, Math.trunc(extraRuns) || 0);
+
+  if (type === EXTRA.WIDE) {
+    const total = 1 + add; // wide penalty + runs run
+    inn.runs += total;
+    inn.extras.wides += total;
+    if (bowler) {
+      bowler.runs += total;
+      inn.currentOverConceded += total;
+    }
+    inn.timeline.push({
+      kind: 'wide',
+      runs: total,
+      illegal: true,
+      over: oversText(inn.legalBalls),
+      bowlerId: inn.currentBowlerId,
+    });
+    if (add % 2 === 1) rotateStrike(inn); // they ran an odd number
+    return;
+  }
+
+  if (type === EXTRA.NO_BALL) {
+    // 1 no-ball to Extras + runs off the bat to the striker.
+    const striker = getStriker(inn);
+    inn.runs += 1 + add;
+    inn.extras.noBalls += 1;
+    striker.runs += add;
+    if (add === 4) striker.fours += 1;
+    if (add === 6) striker.sixes += 1;
+    if (bowler) {
+      bowler.runs += 1 + add;
+      inn.currentOverConceded += 1 + add;
+    }
+    inn.timeline.push({
+      kind: 'no_ball',
+      runs: 1 + add,
+      batRuns: add,
+      illegal: true,
+      over: oversText(inn.legalBalls),
+      batsmanId: striker.id,
+      bowlerId: inn.currentBowlerId,
+    });
+    if (add % 2 === 1) rotateStrike(inn);
+    return;
+  }
+
+  // Bye / Leg-bye: a legal delivery, runs to Extras (not batter, not bowler).
+  // NOT charged to the bowler — an over of byes can still be a maiden.
+  const striker = getStriker(inn);
+  const runs = Math.max(1, add); // a bye is at least 1 run
+  striker.balls += 1; // the batter faced the ball
+  inn.runs += runs;
+  inn.legalBalls += 1;
+  if (bowler) bowler.balls += 1;
+  if (type === EXTRA.BYE) inn.extras.byes += runs;
+  else inn.extras.legByes += runs;
+
+  inn.timeline.push({
+    kind: type,
+    runs,
+    over: oversText(inn.legalBalls),
+    batsmanId: striker.id,
+    bowlerId: inn.currentBowlerId,
+  });
+
+  if (runs % 2 === 1) rotateStrike(inn);
+  if (endOfOver(inn)) completeOver(inn);
+}
+
+/**
+ * payload = {
+ *   dismissal: { id, label, fielderId? },  // fielderId = catcher / run-out / stumper
+ *   outEnd: 'striker' | 'nonStriker',       // which batsman is dismissed (run-outs)
+ *   nextBatsmanId: string | null,           // who walks in (chosen by the scorer)
+ * }
+ */
+function handleWicket(inn, config, payload) {
+  const { dismissal, outEnd = 'striker', nextBatsmanId = null } = payload;
+  const bowler = getCurrentBowler(inn);
+  const striker = getStriker(inn);
+
+  // The striker always faces the legal delivery, whoever ends up dismissed.
+  striker.balls += 1;
+  inn.legalBalls += 1;
+  if (bowler) bowler.balls += 1;
+
+  // For run-outs the non-striker can be the one dismissed.
+  const outId =
+    outEnd === 'nonStriker' && inn.nonStrikerId ? inn.nonStrikerId : inn.strikerId;
+  const out = getBatsman(inn, outId);
+  const record = { ...dismissal, bowlerId: inn.currentBowlerId };
+  out.status = BATSMAN_STATUS.OUT;
+  out.dismissal = record;
+
+  inn.wickets += 1;
+  // Run-outs are not credited to the bowler.
+  if (bowler && dismissal.id !== 'run_out') bowler.wickets += 1;
+
+  inn.timeline.push({
+    kind: 'wicket',
+    runs: 0,
+    dismissal: record,
+    over: oversText(inn.legalBalls),
+    batsmanId: outId,
+    bowlerId: inn.currentBowlerId,
+  });
+
+  // Bring in the chosen batsman (or collapse to a lone batter under LMS).
+  if (inn.wickets < maxWickets(config)) {
+    bringInSpecific(inn, outId, nextBatsmanId);
+  }
+
+  if (endOfOver(inn)) completeOver(inn);
+}
+
+// ---------------------------------------------------------------------------
+// Innings / match finalisation
+// ---------------------------------------------------------------------------
+
+function inningsIsOver(state, inn) {
+  const { config } = state;
+  if (inn.wickets >= maxWickets(config)) return true;
+  if (inn.legalBalls >= config.totalOvers * 6) return true;
+  // Second innings: chase complete.
+  if (state.inningsIndex === 1 && state.target != null && inn.runs >= state.target) {
+    return true;
+  }
+  return false;
+}
+
+function finalize(state) {
+  const inn = currentInnings(state);
+  if (!inn) return state;
+  if (!inningsIsOver(state, inn)) return state;
+
+  if (state.inningsIndex === 0) {
+    state.status = 'innings-break';
+    state.target = inn.runs + 1;
+  } else {
+    state.status = 'complete';
+    state.result = computeResult(state);
+  }
+  return state;
+}
+
+export function computeResult(state) {
+  const { config } = state;
+  const first = state.innings[0];
+  const second = state.innings[1];
+  const target = state.target;
+
+  const chasingId = second.battingTeamId;
+  const defendingId = first.battingTeamId;
+  const chasingName = config.teams[chasingId].name;
+  const defendingName = config.teams[defendingId].name;
+
+  if (second.runs >= target) {
+    const wktsInHand = maxWickets(config) - second.wickets;
+    return {
+      winnerId: chasingId,
+      type: 'win',
+      text: `${chasingName} won by ${wktsInHand} wicket${wktsInHand === 1 ? '' : 's'}`,
+    };
+  }
+  if (second.runs === target - 1) {
+    return { winnerId: null, type: 'tie', text: 'Match tied — scores level!' };
+  }
+  const margin = target - 1 - second.runs;
+  return {
+    winnerId: defendingId,
+    type: 'win',
+    text: `${defendingName} won by ${margin} run${margin === 1 ? '' : 's'}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The reducer
+// ---------------------------------------------------------------------------
+
+export function setupMatch(form) {
+  const config = buildConfig(form);
+  // Toss winner's decision sets who bats first.
+  const battingFirst =
+    config.toss.decision === 'bat'
+      ? config.toss.winnerId
+      : config.toss.winnerId === 'A'
+        ? 'B'
+        : 'A';
+  const bowlingFirst = battingFirst === 'A' ? 'B' : 'A';
+
+  const state = {
+    status: 'live',
+    config,
+    inningsIndex: 0,
+    target: null,
+    innings: [makeInnings(config, battingFirst, bowlingFirst), null],
+    result: null,
+  };
+  return state;
+}
+
+/**
+ * Pure reducer. For delivery actions it clones the incoming state, applies the
+ * change to the clone, and returns it — the original is never touched, which is
+ * exactly what makes the immutable Undo stack reliable.
+ */
+export function matchReducer(state, action) {
+  switch (action.type) {
+    case 'SETUP_MATCH':
+      return setupMatch(action.payload);
+
+    case 'RESET':
+      return createEmptyState();
+
+    case 'LOAD_STATE':
+      // Rehydrate a previously-saved match exactly as it was (resume).
+      return action.state;
+
+    case 'START_NEXT_INNINGS': {
+      if (state.status !== 'innings-break') return state;
+      const prev = currentInnings(state);
+      const next = structuredClone(state);
+      next.innings[1] = makeInnings(state.config, prev.bowlingTeamId, prev.battingTeamId);
+      next.inningsIndex = 1;
+      next.status = 'live';
+      return next;
+    }
+
+    case 'SELECT_BOWLER': {
+      if (state.status !== 'live') return state;
+      const inn = currentInnings(state);
+      // Only choosable at the start of an over (before any legal ball is bowled).
+      if (inn.legalBalls % 6 !== 0) return state;
+      if (inn.currentBowlerId === action.payload.bowlerId) return state; // no-op
+      const next = structuredClone(state);
+      selectBowler(currentInnings(next), next.config, action.payload.bowlerId);
+      return next;
+    }
+
+    case 'SCORE_RUNS': {
+      if (!canBowl(state)) return state;
+      const next = structuredClone(state);
+      handleRuns(currentInnings(next), next.config, action.payload.runs);
+      return finalize(next);
+    }
+
+    case 'EXTRA': {
+      if (!canBowl(state)) return state;
+      const next = structuredClone(state);
+      handleExtra(currentInnings(next), action.payload.extraType, action.payload.runs);
+      return finalize(next);
+    }
+
+    case 'WICKET': {
+      if (!canBowl(state)) return state;
+      const next = structuredClone(state);
+      handleWicket(currentInnings(next), next.config, action.payload);
+      return finalize(next);
+    }
+
+    default:
+      return state;
+  }
+}
+
+/** A delivery can only be recorded when live and a bowler is on. */
+function canBowl(state) {
+  return state.status === 'live' && !!currentInnings(state)?.currentBowlerId;
+}
+
+// ---------------------------------------------------------------------------
+// Selectors — derived display values (never stored in state)
+// ---------------------------------------------------------------------------
+
+export function oversText(legalBalls) {
+  return `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`;
+}
+
+export function runRate(runs, legalBalls) {
+  if (!legalBalls) return 0;
+  return runs / (legalBalls / 6);
+}
+
+export function ballsRemaining(state) {
+  const inn = currentInnings(state);
+  if (!inn) return 0;
+  return Math.max(0, state.config.totalOvers * 6 - inn.legalBalls);
+}
+
+export function requiredRunRate(state) {
+  if (state.inningsIndex !== 1 || state.target == null) return null;
+  const inn = currentInnings(state);
+  const need = state.target - inn.runs;
+  const balls = ballsRemaining(state);
+  if (need <= 0 || balls <= 0) return null;
+  return need / (balls / 6);
+}
+
+export function teamName(state, id) {
+  return state.config?.teams?.[id]?.name ?? id;
+}
+
+/** Economy rate = runs charged ÷ overs bowled. */
+export function bowlerEconomy(bowler) {
+  if (!bowler || !bowler.balls) return 0;
+  return bowler.runs / (bowler.balls / 6);
+}
+
+/**
+ * The bowling side's full roster, flagged for the picker:
+ *  - isCaptain: wears the (C)
+ *  - disabled: just bowled the previous over (no two in a row)
+ */
+function bowlingRoster(state, inn) {
+  const id = inn.bowlingTeamId;
+  const roster = state.config.players?.[id] || [];
+  const captainIdx = state.config.captains?.[id];
+  return roster.map((name, i) => {
+    const playerId = `${id}_b${i}`;
+    return {
+      id: playerId,
+      name,
+      isCaptain: i === captainIdx,
+      disabled: state.config.playersPerTeam > 1 && playerId === inn.lastBowlerId,
+    };
+  });
+}
+
+/**
+ * One tidy bundle of everything the header/scoreboard needs, derived live.
+ */
+export function getMatchContext(state) {
+  const inn = currentInnings(state);
+  if (!inn) return null;
+
+  const wktsLeft = maxWickets(state.config) - inn.wickets;
+  const currentBowler = getCurrentBowler(inn);
+  const ctx = {
+    battingTeamId: inn.battingTeamId,
+    battingTeamName: teamName(state, inn.battingTeamId),
+    bowlingTeamId: inn.bowlingTeamId,
+    bowlingTeamName: teamName(state, inn.bowlingTeamId),
+    runs: inn.runs,
+    wickets: inn.wickets,
+    maxWickets: maxWickets(state.config),
+    wicketsLeft: wktsLeft,
+    legalBalls: inn.legalBalls,
+    oversText: oversText(inn.legalBalls),
+    totalOvers: state.config.totalOvers,
+    crr: runRate(inn.runs, inn.legalBalls),
+    extras: inn.extras,
+    isSecondInnings: state.inningsIndex === 1,
+    target: state.target,
+    ballsRemaining: ballsRemaining(state),
+    rrr: requiredRunRate(state),
+    runsNeeded:
+      state.inningsIndex === 1 && state.target != null
+        ? Math.max(0, state.target - inn.runs)
+        : null,
+    striker: getBatsman(inn, inn.strikerId),
+    nonStriker: inn.nonStrikerId ? getBatsman(inn, inn.nonStrikerId) : null,
+    // Batters eligible to walk in next (not yet batted, or retired & able to return)
+    availableBatsmen: inn.batsmen
+      .filter(
+        (b) =>
+          b.status === BATSMAN_STATUS.DID_NOT_BAT ||
+          b.status === BATSMAN_STATUS.RETIRED
+      )
+      .map((b) => ({
+        id: b.id,
+        name: b.name,
+        isCaptain: b.isCaptain,
+        retired: b.status === BATSMAN_STATUS.RETIRED,
+      })),
+    // ---- bowling ----
+    bowling: {
+      teamName: teamName(state, inn.bowlingTeamId),
+      roster: bowlingRoster(state, inn),
+      bowlers: inn.bowlers,
+      currentBowler,
+      needsBowler: !inn.currentBowlerId,
+      overNumber: Math.floor(inn.legalBalls / 6) + 1,
+      ballsThisOver: inn.legalBalls % 6,
+    },
+  };
+  return ctx;
+}
+
+// ---------------------------------------------------------------------------
+// Player names & dismissal lines
+// ---------------------------------------------------------------------------
+
+/** Resolve a player id (`${team}_b${i}`) to their display name. */
+export function playerName(state, id) {
+  if (!id) return '';
+  const [team, rest] = String(id).split('_b');
+  const idx = Number(rest);
+  return state.config?.players?.[team]?.[idx] || id;
+}
+
+/** A real-cricket dismissal line, e.g. "c Smith b Starc", "run out (Warner)". */
+export function dismissalLine(state, b) {
+  if (b.status === BATSMAN_STATUS.NOT_OUT) return 'not out';
+  if (b.status === BATSMAN_STATUS.RETIRED) return 'retired';
+  const d = b.dismissal;
+  if (!d) return 'out';
+  const bowler = playerName(state, d.bowlerId);
+  const fielder = playerName(state, d.fielderId);
+  switch (d.id) {
+    case 'bowled':
+      return `b ${bowler}`;
+    case 'lbw':
+      return `lbw b ${bowler}`;
+    case 'caught':
+      return fielder ? `c ${fielder} b ${bowler}` : `c & b ${bowler}`;
+    case 'stumped':
+      return `st ${fielder} b ${bowler}`;
+    case 'run_out':
+      return fielder ? `run out (${fielder})` : 'run out';
+    case 'hit_wicket':
+      return `hit wkt b ${bowler}`;
+    default:
+      return (d.label || 'out').toLowerCase();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Post-match awards
+// ---------------------------------------------------------------------------
+
+const econOf = (p) => (p.ballsBowled ? p.runsConceded / (p.ballsBowled / 6) : 0);
+const fieldTotal = (p) => p.catches + p.runOuts + p.stumpings;
+
+function impactScore(p) {
+  return (
+    p.runs +
+    p.fours +
+    p.sixes * 2 +
+    p.wickets * 25 +
+    p.maidens * 4 +
+    fieldTotal(p) * 10
+  );
+}
+
+/**
+ * Aggregate every player's batting, bowling and fielding across both innings
+ * and crown Man of the Match, Best Batsman, Best Bowler and Best Fielder.
+ * Returns null until the match is complete.
+ */
+export function computeAwards(state) {
+  if (state.status !== 'complete') return null;
+
+  const players = {};
+  const ensure = (id) => {
+    if (!players[id]) {
+      const team = String(id).split('_b')[0];
+      players[id] = {
+        id,
+        name: playerName(state, id),
+        teamName: teamName(state, team),
+        runs: 0,
+        ballsFaced: 0,
+        fours: 0,
+        sixes: 0,
+        batted: false,
+        wickets: 0,
+        runsConceded: 0,
+        ballsBowled: 0,
+        maidens: 0,
+        bowled: false,
+        catches: 0,
+        runOuts: 0,
+        stumpings: 0,
+      };
+    }
+    return players[id];
+  };
+
+  for (const inn of state.innings) {
+    if (!inn) continue;
+    for (const b of inn.batsmen) {
+      if (b.status === BATSMAN_STATUS.DID_NOT_BAT && b.balls === 0) continue;
+      const p = ensure(b.id);
+      p.batted = true;
+      p.runs += b.runs;
+      p.ballsFaced += b.balls;
+      p.fours += b.fours;
+      p.sixes += b.sixes;
+      const d = b.dismissal;
+      if (d && d.fielderId) {
+        const f = ensure(d.fielderId);
+        if (d.id === 'caught') f.catches += 1;
+        else if (d.id === 'run_out') f.runOuts += 1;
+        else if (d.id === 'stumped') f.stumpings += 1;
+      }
+    }
+    for (const bw of inn.bowlers) {
+      const p = ensure(bw.id);
+      p.bowled = true;
+      p.wickets += bw.wickets;
+      p.runsConceded += bw.runs;
+      p.ballsBowled += bw.balls;
+      p.maidens += bw.maidens;
+    }
+  }
+
+  const arr = Object.values(players);
+  if (arr.length === 0) return null;
+
+  const batLine = (p) => `${p.runs} (${p.ballsFaced})`;
+  const bowlLine = (p) => `${p.wickets}/${p.runsConceded} (${oversText(p.ballsBowled)})`;
+  const fieldLine = (p) => {
+    const bits = [];
+    if (p.catches) bits.push(`${p.catches} ct`);
+    if (p.runOuts) bits.push(`${p.runOuts} ro`);
+    if (p.stumpings) bits.push(`${p.stumpings} st`);
+    return bits.join(', ');
+  };
+  const wrap = (p, line) =>
+    p ? { id: p.id, name: p.name, teamName: p.teamName, line } : null;
+
+  // Best batsman: most runs, then more sixes, then fewer balls.
+  const bestBat = arr
+    .filter((p) => p.batted)
+    .sort((a, b) => b.runs - a.runs || b.sixes - a.sixes || a.ballsFaced - b.ballsFaced)[0];
+
+  // Best bowler: most wickets, then better economy.
+  const bestBowl = arr
+    .filter((p) => p.bowled && p.ballsBowled > 0)
+    .sort((a, b) => b.wickets - a.wickets || econOf(a) - econOf(b))[0];
+
+  // Best fielder: most dismissals — only if anyone fielded a dismissal.
+  const bestField = arr
+    .filter((p) => fieldTotal(p) > 0)
+    .sort((a, b) => fieldTotal(b) - fieldTotal(a))[0];
+
+  // Man of the match: highest all-round impact.
+  const motm = arr.slice().sort((a, b) => impactScore(b) - impactScore(a))[0];
+
+  const motmLine = (p) => {
+    const bits = [];
+    if (p.batted && (p.runs > 0 || p.ballsFaced > 0)) bits.push(batLine(p));
+    if (p.bowled && p.ballsBowled > 0) bits.push(bowlLine(p));
+    if (fieldTotal(p) > 0) bits.push(fieldLine(p));
+    return bits.join(' · ') || '—';
+  };
+
+  return {
+    manOfMatch: motm && impactScore(motm) > 0 ? wrap(motm, motmLine(motm)) : null,
+    bestBatsman: bestBat ? wrap(bestBat, batLine(bestBat)) : null,
+    bestBowler: bestBowl ? wrap(bestBowl, bowlLine(bestBowl)) : null,
+    bestFielder: bestField ? wrap(bestField, fieldLine(bestField)) : null,
+  };
+}

@@ -1,0 +1,239 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-midnight text-slate-100 font-sans antialiased;
+    /* Premium evening-stadium ambience: a faint film grain over subtle radial
+       glows on deep midnight. The grain is the topmost (first-listed) layer. */
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.28'/%3E%3C/svg%3E"),
+      radial-gradient(1200px 600px at 50% -10%, rgba(0, 230, 118, 0.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 100%, rgba(0, 119, 255, 0.08), transparent 55%),
+      radial-gradient(700px 400px at 0% 80%, rgba(255, 23, 68, 0.06), transparent 55%);
+    background-attachment: fixed;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  /* Allow numeric figures to line up like a real scoreboard */
+  .scoreboard {
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+}
+
+@layer components {
+  /* ---- Glassmorphism surfaces ---- */
+  .glass {
+    @apply relative rounded-2xl border border-white/10 bg-white/[0.04] shadow-glass;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .glass-strong {
+    @apply relative rounded-2xl border border-white/10 bg-white/[0.06] shadow-glass;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Light-catching gradient hairline: brighter top-left, fading to nothing.
+     Masked to a 1px ring so it only paints the border, never the content. */
+  .glass::before,
+  .glass-strong::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.16),
+      rgba(255, 255, 255, 0.03) 38%,
+      rgba(255, 255, 255, 0) 70%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* ---- Tactile, haptic-like press for every scoring button ---- */
+  .btn-press {
+    @apply transition-all duration-100 active:scale-95 select-none;
+  }
+
+  /* ---- Digital scoreboard numerals ---- */
+  .scoreboard {
+    @apply font-mono tabular-nums tracking-tight;
+  }
+}
+
+@layer utilities {
+  /* Brand wordmark — neon→azure gradient clipped onto the text */
+  .wordmark-accent {
+    background-image: linear-gradient(100deg, #00E676 0%, #00C2FF 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-glow-green {
+    text-shadow: 0 0 18px rgba(0, 230, 118, 0.6);
+  }
+  .text-glow-amber {
+    text-shadow: 0 0 18px rgba(255, 167, 38, 0.55);
+  }
+  .text-glow-crimson {
+    text-shadow: 0 0 18px rgba(255, 23, 68, 0.6);
+  }
+
+  /* Thin, themed scrollbars for the scorecard panels */
+  .scroll-slim::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+  }
+}
+
+/* ============================================================
+   Light theme — applied when <html class="light"> is set.
+   Keeps neon (#00E676) accents; flips backdrop to slate-200.
+   ============================================================ */
+html.light body {
+  background-color: #DDE3EA;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E"),
+    radial-gradient(1200px 600px at 50% -10%, rgba(5, 150, 105, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, rgba(2, 132, 199, 0.07), transparent 55%),
+    radial-gradient(700px 400px at 0% 80%, rgba(255, 23, 68, 0.04), transparent 55%);
+  color: #1E293B;
+}
+
+html.light .glass {
+  background: rgba(255, 255, 255, 0.68) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 8px 40px -12px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+}
+
+html.light .glass-strong {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 8px 40px -12px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+}
+
+/* Gradient hairline flips to a dark light-catch on white cards */
+html.light .glass::before,
+html.light .glass-strong::before {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.10),
+    rgba(0, 0, 0, 0.03) 38%,
+    rgba(0, 0, 0, 0) 70%
+  );
+}
+
+/* --- Text ---
+   Dark theme uses light-on-dark; on light bg we flip heavy text dark,
+   but keep slate-500/600 at their native values — they're already dark
+   enough (#64748B / #475569) and read perfectly on white cards.        */
+html.light .text-white     { color: #0F172A !important; }
+html.light .text-slate-100 { color: #1E293B !important; }
+html.light .text-slate-200 { color: #334155 !important; }
+html.light .text-slate-300 { color: #475569 !important; }
+html.light .text-slate-400 { color: #64748B !important; }
+/* text-slate-500 (#64748B native) and text-slate-600 (#475569 native)
+   are intentionally NOT overridden — they're already readable on light. */
+
+/* --- White-tinted backgrounds → dark-tinted --- */
+html.light .bg-white\/5          { background-color: rgba(0,0,0,0.05) !important; }
+html.light .bg-white\/\[0\.02\]  { background-color: rgba(0,0,0,0.02) !important; }
+html.light .bg-white\/\[0\.03\]  { background-color: rgba(0,0,0,0.03) !important; }
+html.light .bg-white\/\[0\.04\]  { background-color: rgba(0,0,0,0.04) !important; }
+html.light .bg-white\/\[0\.05\]  { background-color: rgba(0,0,0,0.05) !important; }
+html.light .bg-white\/\[0\.06\]  { background-color: rgba(0,0,0,0.06) !important; }
+
+/* --- White-tinted borders → dark-tinted --- */
+html.light .border-white\/10        { border-color: rgba(0,0,0,0.10) !important; }
+html.light .border-white\/\[0\.06\] { border-color: rgba(0,0,0,0.06) !important; }
+html.light .border-white\/\[0\.08\] { border-color: rgba(0,0,0,0.08) !important; }
+
+/* --- White-tinted rings → dark-tinted (used on locked achievement badges etc.) --- */
+html.light .ring-white\/10          { --tw-ring-color: rgba(0,0,0,0.12) !important; }
+html.light .ring-white\/\[0\.08\]   { --tw-ring-color: rgba(0,0,0,0.12) !important; }
+html.light .ring-white\/\[0\.10\]   { --tw-ring-color: rgba(0,0,0,0.14) !important; }
+
+/* --- Divide lines --- */
+html.light .divide-white\/\[0\.06\] > * + * { border-color: rgba(0,0,0,0.08) !important; }
+
+/* neon buttons use text-midnight (dark text on green bg) — keep as-is */
+
+/* ---- Light theme: swap neon #00E676 → emerald #059669 ---- */
+/* Plain text / borders / fills */
+html.light .text-neon            { color: #059669 !important; }
+html.light .bg-neon              { background-color: #059669 !important; }
+html.light .border-neon\/30      { border-color: rgba(5,150,105,0.50) !important; }
+html.light .border-neon\/40      { border-color: rgba(5,150,105,0.65) !important; }
+
+/* Tinted fills */
+html.light .bg-neon\/10          { background-color: rgba(5,150,105,0.10) !important; }
+html.light .bg-neon\/15          { background-color: rgba(5,150,105,0.15) !important; }
+html.light .bg-neon\/20          { background-color: rgba(5,150,105,0.20) !important; }
+html.light .bg-neon\/\[0\.06\]   { background-color: rgba(5,150,105,0.07) !important; }
+html.light .bg-neon\/\[0\.12\]   { background-color: rgba(5,150,105,0.12) !important; }
+html.light .bg-neon\/\[0\.15\]   { background-color: rgba(5,150,105,0.15) !important; }
+
+/* Ring (focus / outline) */
+html.light .ring-neon\/20        { --tw-ring-color: rgba(5,150,105,0.25) !important; }
+html.light .ring-neon\/30        { --tw-ring-color: rgba(5,150,105,0.40) !important; }
+html.light .ring-neon\/40        { --tw-ring-color: rgba(5,150,105,0.55) !important; }
+
+/* Hover tints */
+html.light .hover\:bg-neon\/10:hover  { background-color: rgba(5,150,105,0.10) !important; }
+html.light .hover\:border-neon\/40:hover { border-color: rgba(5,150,105,0.55) !important; }
+html.light .hover\:bg-neon\/5:hover   { background-color: rgba(5,150,105,0.06) !important; }
+
+/* Glow shadow — softer on light bg */
+html.light .shadow-glow-green    { box-shadow: 0 0 22px -6px rgba(5,150,105,0.35), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
+
+/* Text glow */
+html.light .text-glow-green      { text-shadow: 0 0 14px rgba(5,150,105,0.45) !important; }
+
+/* ---- Light theme: deepen azure #00C2FF → #0284C7 (Series accent) ---- */
+html.light .text-azure           { color: #0284C7 !important; }
+html.light .bg-azure\/15         { background-color: rgba(2,132,199,0.14) !important; }
+html.light .bg-azure\/20         { background-color: rgba(2,132,199,0.16) !important; }
+html.light .bg-azure\/\[0\.06\]  { background-color: rgba(2,132,199,0.07) !important; }
+html.light .border-azure\/30     { border-color: rgba(2,132,199,0.45) !important; }
+html.light .ring-azure\/30       { --tw-ring-color: rgba(2,132,199,0.40) !important; }
+html.light .hover\:bg-azure\/10:hover { background-color: rgba(2,132,199,0.10) !important; }
+html.light .shadow-glow-azure    { box-shadow: 0 0 22px -6px rgba(2,132,199,0.32), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
+
+/* ---- Light theme: deepen amber #FFA726 → #D97706 (Tournament / warnings) ---- */
+html.light .text-alert           { color: #D97706 !important; }
+html.light .bg-alert\/10         { background-color: rgba(217,119,6,0.10) !important; }
+html.light .bg-alert\/15         { background-color: rgba(217,119,6,0.14) !important; }
+html.light .bg-alert\/\[0\.06\]  { background-color: rgba(217,119,6,0.07) !important; }
+html.light .border-alert\/30     { border-color: rgba(217,119,6,0.45) !important; }
+html.light .ring-alert\/30       { --tw-ring-color: rgba(217,119,6,0.40) !important; }
+html.light .ring-alert\/40       { --tw-ring-color: rgba(217,119,6,0.50) !important; }
+html.light .hover\:bg-alert\/10:hover { background-color: rgba(217,119,6,0.10) !important; }
+html.light .shadow-glow-amber    { box-shadow: 0 0 22px -6px rgba(217,119,6,0.30), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
+
+/* Wordmark gradient flips to emerald→deep-blue on light */
+html.light .wordmark-accent {
+  background-image: linear-gradient(100deg, #059669 0%, #0284C7 100%);
+}
+
+/* Notification-badge "notch" ring matches the page bg in light mode */
+html.light .ring-midnight { --tw-ring-color: #DDE3EA !important; }

@@ -54,8 +54,20 @@ export default function AuthScreen() {
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-5 py-10">
       <div className="animate-pop-in space-y-6">
         {/* Brand */}
-        <div className="text-center">
-          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-neon/15 text-neon ring-1 ring-neon/30">
+        <div className="relative text-center">
+          {/* Soft spotlight + a faint cricket-seam arc curving behind the mark */}
+          <div className="pointer-events-none absolute inset-x-0 -top-10 mx-auto h-44 w-60">
+            <div className="absolute left-1/2 top-8 h-28 w-28 -translate-x-1/2 rounded-full bg-neon/15 blur-3xl animate-drift" />
+            <svg viewBox="0 0 240 176" className="absolute inset-0 h-full w-full text-neon/10" fill="none" stroke="currentColor">
+              <path d="M2 150 C 70 140, 170 132, 238 150" strokeWidth="1.5" />
+              <g strokeWidth="1" opacity="0.7">
+                <line x1="44" y1="143" x2="40" y2="135" /><line x1="84" y1="138" x2="81" y2="130" />
+                <line x1="120" y1="136" x2="120" y2="128" /><line x1="156" y1="138" x2="159" y2="130" />
+                <line x1="196" y1="143" x2="200" y2="135" />
+              </g>
+            </svg>
+          </div>
+          <span className="relative mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-2xl bg-neon/15 text-neon ring-1 ring-neon/30 shadow-glow-green">
             <Logo size={34} />
           </span>
           <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white">
@@ -69,9 +81,9 @@ export default function AuthScreen() {
         {!configured ? (
           <SetupNotice />
         ) : (
-          <div className="glass-strong p-6">
+          <div className="card-hero glass-box p-6">
             {/* Tabs */}
-            <div className="mb-5 flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+            <div className="mb-5 flex gap-1 rounded-xl neu-inset p-1">
               <TabBtn active={isLogin} onClick={() => { setMode('login'); setError(null); }}>
                 Log in
               </TabBtn>
@@ -114,7 +126,7 @@ export default function AuthScreen() {
               <button
                 type="submit"
                 disabled={busy}
-                className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green disabled:opacity-60"
+                className="btn-press sheenable flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green ring-1 ring-neon-soft/40 disabled:opacity-60"
               >
                 {busy ? (
                   <Loader2 size={18} className="animate-spin" />
@@ -148,7 +160,7 @@ function TabBtn({ active, onClick, children }) {
     <button
       type="button"
       onClick={onClick}
-      className={`btn-press flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wider transition ${
+      className={`neu-press flex-1 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-200 ${
         active ? 'bg-neon text-midnight shadow-glow-green' : 'text-slate-400 hover:text-slate-200'
       }`}
     >

@@ -9,7 +9,7 @@
  * the current `present` is pushed onto `history`. UNDO simply pops the last
  * snapshot and makes it `present` again — instant, exact, and unlimited depth.
  */
-import { useReducer, useMemo, useCallback } from 'react';
+import { useReducer, useMemo, useCallback, useState, useEffect } from 'react';
 import {
   createEmptyState,
   matchReducer,
@@ -17,6 +17,7 @@ import {
   EXTRA,
 } from '../engine/matchEngine';
 import { generateNarrative } from '../engine/narrative';
+import { careerStats as loadCareerStats } from '../leaderboard';
 
 const DELIVERY_ACTIONS = new Set([
   'SCORE_RUNS',
@@ -70,6 +71,12 @@ export function useMatchEngine() {
   const [model, dispatch] = useReducer(appReducer, undefined, init);
   const state = model.present;
 
+  // ---- Career stats (async, from completed saved matches) ----
+  const [career, setCareer] = useState(null);
+  useEffect(() => {
+    loadCareerStats().then(setCareer).catch(() => null);
+  }, []);
+
   // ---- Action creators (stable identities) ----
   const setupMatch = useCallback(
     (form) => dispatch({ type: 'SETUP_MATCH', payload: form }),
@@ -101,7 +108,7 @@ export function useMatchEngine() {
 
   // ---- Derived, memoised view-model ----
   const context = useMemo(() => getMatchContext(state), [state]);
-  const narrative = useMemo(() => generateNarrative(state), [state]);
+  const narrative = useMemo(() => generateNarrative(state, career), [state, career]);
 
   return {
     state,

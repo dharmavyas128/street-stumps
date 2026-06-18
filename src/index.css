@@ -10,43 +10,239 @@
   }
 
   body {
-    @apply bg-midnight text-slate-100 font-sans antialiased;
-    /* Premium evening-stadium ambience: a faint film grain over subtle radial
-       glows on deep midnight. The grain is the topmost (first-listed) layer. */
+    @apply text-slate-100 font-sans antialiased;
+    /* ── Layered night-stadium atmosphere ──────────────────────────────
+       Topmost: faint grain. Then two cool floodlight glows raking in from
+       the upper corners, a soft green field-glow, over a deep midnight
+       vertical gradient. Stars + seam motif are painted by ::before / ::after. */
+    background-color: #0B0F1A;
     background-image:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.28'/%3E%3C/svg%3E"),
-      radial-gradient(1200px 600px at 50% -10%, rgba(0, 230, 118, 0.10), transparent 60%),
-      radial-gradient(900px 500px at 100% 100%, rgba(0, 119, 255, 0.08), transparent 55%),
-      radial-gradient(700px 400px at 0% 80%, rgba(255, 23, 68, 0.06), transparent 55%);
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
+      radial-gradient(620px 320px at 10% -6%, rgba(191, 219, 254, 0.11), transparent 60%),
+      radial-gradient(620px 320px at 90% -6%, rgba(191, 219, 254, 0.10), transparent 60%),
+      radial-gradient(900px 480px at 50% -10%, rgba(22, 163, 74, 0.14), transparent 62%),
+      linear-gradient(180deg, #090C16 0%, #0F172A 46%, #0C1424 100%);
     background-attachment: fixed;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
   }
 
-  /* Allow numeric figures to line up like a real scoreboard */
+  /* Subtle star field — only the upper sky, masked to fade out by mid-screen.
+     Kept sparse and dim so it reads as a calm night, never a galaxy. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-position: top center;
+    background-size: 100% 62%;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='620'%3E%3Cg fill='%23ffffff'%3E%3Ccircle cx='90' cy='70' r='1.1' opacity='.7'/%3E%3Ccircle cx='220' cy='130' r='.8' opacity='.45'/%3E%3Ccircle cx='340' cy='52' r='1.3' opacity='.8'/%3E%3Ccircle cx='470' cy='150' r='.7' opacity='.4'/%3E%3Ccircle cx='560' cy='80' r='1' opacity='.6'/%3E%3Ccircle cx='690' cy='40' r='.9' opacity='.55'/%3E%3Ccircle cx='760' cy='170' r='.7' opacity='.4'/%3E%3Ccircle cx='880' cy='90' r='1.2' opacity='.75'/%3E%3Ccircle cx='980' cy='150' r='.8' opacity='.45'/%3E%3Ccircle cx='1080' cy='60' r='1' opacity='.6'/%3E%3Ccircle cx='1150' cy='140' r='.7' opacity='.4'/%3E%3Ccircle cx='40' cy='200' r='.8' opacity='.4'/%3E%3Ccircle cx='160' cy='260' r='1' opacity='.5'/%3E%3Ccircle cx='300' cy='220' r='.7' opacity='.35'/%3E%3Ccircle cx='430' cy='300' r='.9' opacity='.45'/%3E%3Ccircle cx='600' cy='240' r='.7' opacity='.35'/%3E%3Ccircle cx='730' cy='300' r='1' opacity='.5'/%3E%3Ccircle cx='840' cy='250' r='.7' opacity='.35'/%3E%3Ccircle cx='960' cy='320' r='.8' opacity='.4'/%3E%3Ccircle cx='1100' cy='260' r='.9' opacity='.45'/%3E%3Ccircle cx='250' cy='380' r='.7' opacity='.3'/%3E%3Ccircle cx='520' cy='400' r='.8' opacity='.32'/%3E%3Ccircle cx='820' cy='400' r='.7' opacity='.3'/%3E%3Ccircle cx='148' cy='48' r='.9' opacity='.55'/%3E%3Ccircle cx='265' cy='98' r='.8' opacity='.5'/%3E%3Ccircle cx='398' cy='28' r='1.1' opacity='.65'/%3E%3Ccircle cx='508' cy='118' r='.7' opacity='.42'/%3E%3Ccircle cx='622' cy='58' r='1' opacity='.6'/%3E%3Ccircle cx='715' cy='108' r='.8' opacity='.48'/%3E%3Ccircle cx='835' cy='38' r='.9' opacity='.52'/%3E%3Ccircle cx='945' cy='115' r='.7' opacity='.4'/%3E%3Ccircle cx='1028' cy='88' r='1' opacity='.58'/%3E%3Ccircle cx='1128' cy='108' r='.8' opacity='.45'/%3E%3Ccircle cx='68' cy='162' r='.7' opacity='.38'/%3E%3Ccircle cx='192' cy='178' r='.9' opacity='.45'/%3E%3Ccircle cx='362' cy='168' r='.7' opacity='.36'/%3E%3Ccircle cx='492' cy='195' r='.8' opacity='.42'/%3E%3Ccircle cx='648' cy='175' r='.7' opacity='.36'/%3E%3Ccircle cx='778' cy='192' r='.9' opacity='.44'/%3E%3Ccircle cx='908' cy='168' r='.7' opacity='.36'/%3E%3Ccircle cx='1048' cy='188' r='.8' opacity='.4'/%3E%3Ccircle cx='128' cy='295' r='.7' opacity='.32'/%3E%3Ccircle cx='368' cy='278' r='.8' opacity='.34'/%3E%3Ccircle cx='558' cy='295' r='.7' opacity='.3'/%3E%3Ccircle cx='688' cy='272' r='.8' opacity='.33'/%3E%3Ccircle cx='878' cy='285' r='.7' opacity='.3'/%3E%3Ccircle cx='1018' cy='295' r='.7' opacity='.32'/%3E%3Ccircle cx='148' cy='352' r='.7' opacity='.26'/%3E%3Ccircle cx='388' cy='342' r='.7' opacity='.25'/%3E%3Ccircle cx='668' cy='358' r='.7' opacity='.25'/%3E%3Ccircle cx='938' cy='345' r='.7' opacity='.26'/%3E%3C/g%3E%3C/svg%3E");
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.55) 55%, transparent 100%);
+            mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.55) 55%, transparent 100%);
+  }
+
+  /* Cricket-ball seam — a single elegant stitched arc, low-opacity, sweeping
+     out of the lower-right. A hidden cricket signature, not a literal ball. */
+  body::after {
+    content: '';
+    position: fixed;
+    right: -28%;
+    bottom: -32%;
+    z-index: -1;
+    width: 120vmin;
+    height: 120vmin;
+    pointer-events: none;
+    opacity: 0.5;
+    /* Seam drifts gently the other way for layered depth. */
+    transform: translate3d(calc(var(--sy, 0) * 0.03px), calc(var(--sy, 0) * 0.07px), 0);
+    will-change: transform;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cg fill='none' stroke='%2316A34A' stroke-width='2' opacity='0.18'%3E%3Cpath d='M40 360 C 150 270, 250 150, 360 40'/%3E%3Cpath d='M58 372 C 168 282, 268 162, 378 52'/%3E%3C/g%3E%3Cg stroke='%2316A34A' stroke-width='1.4' opacity='0.16'%3E%3Cline x1='62' y1='352' x2='78' y2='366'/%3E%3Cline x1='92' y1='320' x2='108' y2='334'/%3E%3Cline x1='124' y1='288' x2='140' y2='302'/%3E%3Cline x1='158' y1='256' x2='174' y2='270'/%3E%3Cline x1='192' y1='222' x2='208' y2='236'/%3E%3Cline x1='226' y1='188' x2='242' y2='202'/%3E%3Cline x1='258' y1='154' x2='274' y2='168'/%3E%3Cline x1='290' y1='120' x2='306' y2='134'/%3E%3Cline x1='322' y1='86' x2='338' y2='100'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
   .scoreboard {
     font-feature-settings: 'tnum' 1, 'zero' 1;
   }
 }
 
 @layer components {
-  /* ---- Glassmorphism surfaces ---- */
+  /* ════════════════════════════════════════════════════════════════
+     LIQUID GLASS — the core surface language.
+     Semi-transparent, blurred, layered, faintly luminous, dimensional.
+     ════════════════════════════════════════════════════════════════ */
   .glass {
-    @apply relative rounded-2xl border border-white/10 bg-white/[0.04] shadow-glass;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    @apply relative rounded-2xl border border-white/10 bg-white/[0.045] shadow-glass;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
   }
 
   .glass-strong {
-    @apply relative rounded-2xl border border-white/10 bg-white/[0.06] shadow-glass;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    @apply relative rounded-2xl border border-white/[0.12] bg-white/[0.07] shadow-glass;
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
   }
 
-  /* Light-catching gradient hairline: brighter top-left, fading to nothing.
-     Masked to a 1px ring so it only paints the border, never the content. */
+  /* ── Card tiers ── three levels of elevation + glow so surfaces read as a
+     designed hierarchy instead of one repeated card.
+       • card-hero    — focal surfaces: biggest blur, strongest green glow
+       • card-action  — tappable cards: medium blur, medium (coloured) glow
+       • card-utility — quiet rows: minimal blur, calm border, little glow      */
+  .card-hero {
+    @apply relative rounded-3xl border border-white/[0.14] bg-white/[0.075];
+    backdrop-filter: blur(34px) saturate(190%);
+    -webkit-backdrop-filter: blur(34px) saturate(190%);
+    box-shadow:
+      0 26px 72px -28px rgba(0, 0, 0, 0.85),
+      0 0 54px -20px rgba(22, 163, 74, 0.30),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+  .card-action {
+    @apply relative rounded-2xl border border-white/[0.13] bg-white/[0.036];
+    backdrop-filter: blur(32px) saturate(195%) brightness(1.04);
+    -webkit-backdrop-filter: blur(32px) saturate(195%) brightness(1.04);
+    box-shadow:
+      0 14px 44px -16px rgba(0, 0, 0, 0.68),
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.20),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.16),
+      inset 1px 0 0 rgba(255, 255, 255, 0.06);
+  }
+  .card-utility {
+    @apply relative rounded-2xl border border-white/[0.07] bg-white/[0.025];
+    backdrop-filter: blur(12px) saturate(135%);
+    -webkit-backdrop-filter: blur(12px) saturate(135%);
+    box-shadow: 0 6px 22px -16px rgba(0, 0, 0, 0.5);
+  }
+  /* ════════════════════════════════════════════════════════════════
+     LIQUID GLASS BOX — Apple-inspired premium hero surface.
+     Deeper blur, layered radial reflections, an animated shimmer,
+     and a hover lift create realistic frosted-glass depth and shine.
+     ════════════════════════════════════════════════════════════════ */
+  .glass-box {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.5rem;
+
+    /* Translucent tinted surface — background stars bleed through */
+    background: rgba(255, 255, 255, 0.042);
+    backdrop-filter: blur(40px) saturate(210%) brightness(1.06);
+    -webkit-backdrop-filter: blur(40px) saturate(210%) brightness(1.06);
+
+    /* Thin outer border */
+    border: 1px solid rgba(255, 255, 255, 0.13);
+
+    /* Multi-layer shadow stack:
+       – deep ambient drop         → card lifts off the background
+       – top-edge inner specular   → glass-thickness illusion
+       – bottom-edge inner depth   → glass reads heavier at the base
+       – left-edge inner sheen     → side-light catch
+       – diffuse green accent aura → on-brand ambient glow          */
+    box-shadow:
+      0 32px 80px -20px rgba(0, 0, 0, 0.82),
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.24),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.20),
+      inset 1px 0 0 rgba(255, 255, 255, 0.07),
+      0 0 64px -24px rgba(22, 163, 74, 0.30);
+
+    /* `translate` (CSS Transforms Level 2) composes with `transform` so the
+       hover lift works independently of .hero-float's scroll-driven transform */
+    transition:
+      translate 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  /* Top-left glossy light pool + bottom-right depth haze.
+     Uses !important on background + mask resets to win over the
+     .card-hero::before specular-ring group selector which appears
+     later in this file at equal specificity. */
+  .glass-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+      radial-gradient(ellipse 78% 46% at 22% 0%,   rgba(255, 255, 255, 0.15) 0%, transparent 62%),
+      radial-gradient(ellipse 52% 34% at 82% 104%,  rgba(0,   0,   0,   0.12) 0%, transparent 58%) !important;
+    /* Clear the mask the specular-ring rule would otherwise impose */
+    -webkit-mask: initial !important;
+            mask: initial !important;
+    -webkit-mask-composite: initial !important;
+            mask-composite: initial !important;
+    pointer-events: none;
+  }
+
+  /* Animated diagonal shimmer — a narrow skewed light band sweeps
+     left-to-right every 10 s, mimicking a light source drifting past.
+     Very low opacity keeps it cinematic, never distracting. */
+  .glass-box::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 48%;
+    height: 100%;
+    background: linear-gradient(
+      105deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.04) 38%,
+      rgba(255, 255, 255, 0.11) 50%,
+      rgba(255, 255, 255, 0.04) 62%,
+      transparent 100%
+    );
+    transform: translateX(-140%) skewX(-12deg);
+    animation: glass-box-shimmer 10s ease-in-out 2s infinite;
+    pointer-events: none;
+  }
+
+  /* Hover: soft lift + deeper shadow + brighter top specular */
+  @media (hover: hover) {
+    .glass-box:hover {
+      translate: 0 -2px;
+      box-shadow:
+        0 44px 96px -18px rgba(0, 0, 0, 0.88),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.32),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+        inset 1px 0 0 rgba(255, 255, 255, 0.10),
+        0 0 80px -20px rgba(22, 163, 74, 0.40);
+    }
+  }
+
+  /* Medium coloured glow applied to tappable action cards.
+     Each variant carries the full glass shadow stack + its accent aura
+     so the coloured glow composes with the liquid-glass depth. */
+  .elev-action-green {
+    box-shadow:
+      0 14px 44px -16px rgba(0, 0, 0, 0.72),
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.16),
+      inset 1px 0 0 rgba(255, 255, 255, 0.07),
+      0 0 52px -14px rgba(22, 163, 74, 0.62);
+  }
+  .elev-action-gold {
+    box-shadow:
+      0 14px 44px -16px rgba(0, 0, 0, 0.72),
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.16),
+      inset 1px 0 0 rgba(255, 255, 255, 0.07),
+      0 0 52px -14px rgba(251, 191, 36, 0.55);
+  }
+  .elev-action-teal {
+    box-shadow:
+      0 14px 44px -16px rgba(0, 0, 0, 0.72),
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.16),
+      inset 1px 0 0 rgba(255, 255, 255, 0.07),
+      0 0 52px -14px rgba(20, 184, 166, 0.58);
+  }
+
+  /* Specular top-edge highlight, masked to a 1px ring — the liquid-glass tell. */
   .glass::before,
-  .glass-strong::before {
+  .glass-strong::before,
+  .card-hero::before,
+  .card-action::before,
+  .card-utility::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -54,9 +250,9 @@
     padding: 1px;
     background: linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.16),
-      rgba(255, 255, 255, 0.03) 38%,
-      rgba(255, 255, 255, 0) 70%
+      rgba(255, 255, 255, 0.24),
+      rgba(255, 255, 255, 0.05) 40%,
+      rgba(255, 255, 255, 0) 72%
     );
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -65,37 +261,95 @@
     pointer-events: none;
   }
 
-  /* ---- Tactile, haptic-like press for every scoring button ---- */
+  /* ════════════════════════════════════════════════════════════════
+     NEUMORPHISM — reserved for SMALL controls only (steppers, toggles,
+     segmented tracks, control chips). Never full cards.
+     ════════════════════════════════════════════════════════════════ */
+  .neu {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+    box-shadow:
+      -3px -3px 7px rgba(255, 255, 255, 0.045),
+      3px 3px 8px rgba(0, 0, 0, 0.5);
+  }
+  .neu-inset {
+    background: rgba(0, 0, 0, 0.18);
+    box-shadow:
+      inset 2px 2px 5px rgba(0, 0, 0, 0.55),
+      inset -2px -2px 5px rgba(255, 255, 255, 0.04);
+  }
+  .neu-press {
+    transition: box-shadow 0.12s ease, transform 0.12s ease;
+  }
+  .neu-press:active {
+    transform: scale(0.96);
+    box-shadow:
+      inset 2px 2px 5px rgba(0, 0, 0, 0.55),
+      inset -2px -2px 5px rgba(255, 255, 255, 0.03);
+  }
+
+  /* ---- Tactile press for buttons ---- */
   .btn-press {
     @apply transition-all duration-100 active:scale-95 select-none;
   }
 
-  /* ---- Digital scoreboard numerals ---- */
+  /* ---- Interactive lift for tappable cards ---- */
+  .lift {
+    @apply transition-transform duration-200 ease-out hover:-translate-y-0.5;
+  }
+
+  /* ── Scroll-driven hero parallax ─────────────────────────────────────
+       hero-float reads --sy (page scrollY, set on :root by App.jsx): the glass
+       card scrolls a touch faster than the page and gently recedes (scale↓),
+       so it floats in 3D. */
+  .hero-float {
+    transform:
+      translate3d(0, calc(var(--sy, 0) * -0.035px), 0)
+      scale(clamp(0.945, calc(1 - var(--sy, 0) * 0.00006), 1));
+    transform-origin: 50% 30%;
+  }
+
+  /* ---- Glass reflection sweep on hover/tap ---- */
+  .sheenable {
+    position: relative;
+    overflow: hidden;
+  }
+  .sheenable::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      105deg,
+      transparent 32%,
+      rgba(255, 255, 255, 0.10) 48%,
+      transparent 64%
+    );
+    transform: translateX(-120%);
+    pointer-events: none;
+  }
+  .sheenable:hover::after {
+    animation: sheen 1.1s ease-out;
+  }
+
   .scoreboard {
     @apply font-mono tabular-nums tracking-tight;
   }
 }
 
 @layer utilities {
-  /* Brand wordmark — neon→azure gradient clipped onto the text */
+  /* Brand wordmark — solid cricket green. */
   .wordmark-accent {
-    background-image: linear-gradient(100deg, #00E676 0%, #00C2FF 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: #16A34A;
   }
 
   .text-glow-green {
-    text-shadow: 0 0 18px rgba(0, 230, 118, 0.6);
+    text-shadow: 0 0 16px rgba(22, 163, 74, 0.55);
   }
-  .text-glow-amber {
-    text-shadow: 0 0 18px rgba(255, 167, 38, 0.55);
-  }
+  .text-glow-amber,
   .text-glow-crimson {
-    text-shadow: 0 0 18px rgba(255, 23, 68, 0.6);
+    text-shadow: 0 0 16px rgba(251, 191, 36, 0.5);
   }
 
-  /* Thin, themed scrollbars for the scorecard panels */
   .scroll-slim::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -104,136 +358,323 @@
     background: rgba(255, 255, 255, 0.12);
     border-radius: 9999px;
   }
+
+  /* Breathing glow on the green STUMPS letters — runs after entrance settles. */
+  @keyframes stumps-glow {
+    0%, 100% { text-shadow: 0 0 10px rgba(22, 163, 74, 0.30); }
+    50%       { text-shadow: 0 0 22px rgba(34, 197, 94, 0.70), 0 0 44px rgba(22, 163, 74, 0.22); }
+  }
+
+  /* Diagonal shimmer sweep for .glass-box::after */
+  @keyframes glass-box-shimmer {
+    0%, 8%  { transform: translateX(-140%) skewX(-12deg); opacity: 0; }
+    12%     { opacity: 1; }
+    44%     { transform: translateX(320%) skewX(-12deg); opacity: 0; }
+    100%    { transform: translateX(320%) skewX(-12deg); opacity: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body::before,
+    body::after { transform: none !important; }
+    .sheenable:hover::after { animation: none; }
+    .animate-liquid-sweep,
+    .animate-twinkle { animation: none !important; }
+    .animate-twinkle { opacity: 0.4 !important; }
+    .hero-float { transform: none !important; }
+    .glass-box::after { animation: none !important; }
+  }
 }
 
 /* ============================================================
-   Light theme — applied when <html class="light"> is set.
-   Keeps neon (#00E676) accents; flips backdrop to slate-200.
+   Light theme — same two-hue palette on a soft light backdrop.
    ============================================================ */
 html.light body {
-  background-color: #DDE3EA;
+  background-color: #F4F8FD;
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E"),
-    radial-gradient(1200px 600px at 50% -10%, rgba(5, 150, 105, 0.10), transparent 60%),
-    radial-gradient(900px 500px at 100% 100%, rgba(2, 132, 199, 0.07), transparent 55%),
-    radial-gradient(700px 400px at 0% 80%, rgba(255, 23, 68, 0.04), transparent 55%);
-  color: #1E293B;
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.80' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.022'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 820px 520px at 14% -8%, rgba(186,210,238,0.52), transparent 65%),
+    radial-gradient(ellipse 820px 520px at 86% -8%, rgba(186,210,238,0.48), transparent 65%),
+    radial-gradient(ellipse 520px 320px at 50% 2%, rgba(240,248,255,0.75), transparent 52%),
+    radial-gradient(ellipse 640px 420px at 50% -15%, rgba(22,163,74,0.055), transparent 60%),
+    radial-gradient(ellipse 700px 480px at 2% 85%, rgba(186,210,238,0.18), transparent 60%),
+    linear-gradient(178deg, #FAFCFF 0%, #F2F8FD 35%, #EBF2FA 70%, #E5EDF7 100%);
+  color: #0F172A;
 }
+html.light body::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='750'%3E%3Cg fill='%23CBD5E1'%3E%3Ccircle cx='42' cy='88' r='1.2' opacity='.16'/%3E%3Ccircle cx='160' cy='155' r='.7' opacity='.13'/%3E%3Ccircle cx='280' cy='50' r='1' opacity='.15'/%3E%3Ccircle cx='400' cy='120' r='.8' opacity='.13'/%3E%3Ccircle cx='520' cy='75' r='1.1' opacity='.16'/%3E%3Ccircle cx='640' cy='148' r='.7' opacity='.12'/%3E%3Ccircle cx='760' cy='58' r='1.2' opacity='.15'/%3E%3Ccircle cx='880' cy='115' r='.9' opacity='.14'/%3E%3Ccircle cx='1000' cy='80' r='1' opacity='.15'/%3E%3Ccircle cx='1140' cy='145' r='.8' opacity='.13'/%3E%3Ccircle cx='65' cy='245' r='.9' opacity='.14'/%3E%3Ccircle cx='195' cy='315' r='1.1' opacity='.16'/%3E%3Ccircle cx='325' cy='278' r='.7' opacity='.12'/%3E%3Ccircle cx='455' cy='340' r='1.2' opacity='.15'/%3E%3Ccircle cx='580' cy='265' r='.8' opacity='.13'/%3E%3Ccircle cx='710' cy='318' r='1' opacity='.14'/%3E%3Ccircle cx='845' cy='275' r='.9' opacity='.14'/%3E%3Ccircle cx='975' cy='345' r='.7' opacity='.12'/%3E%3Ccircle cx='1110' cy='288' r='1.1' opacity='.15'/%3E%3Ccircle cx='25' cy='418' r='.8' opacity='.13'/%3E%3Ccircle cx='160' cy='485' r='1' opacity='.14'/%3E%3Ccircle cx='295' cy='445' r='.7' opacity='.12'/%3E%3Ccircle cx='425' cy='508' r='1.1' opacity='.15'/%3E%3Ccircle cx='555' cy='465' r='.9' opacity='.13'/%3E%3Ccircle cx='688' cy='492' r='.8' opacity='.13'/%3E%3Ccircle cx='825' cy='452' r='1.2' opacity='.16'/%3E%3Ccircle cx='955' cy='508' r='.7' opacity='.12'/%3E%3Ccircle cx='1085' cy='468' r='.9' opacity='.14'/%3E%3Ccircle cx='95' cy='588' r='.8' opacity='.12'/%3E%3Ccircle cx='240' cy='618' r='1' opacity='.13'/%3E%3Ccircle cx='385' cy='572' r='.7' opacity='.11'/%3E%3Ccircle cx='528' cy='635' r='.9' opacity='.14'/%3E%3Ccircle cx='660' cy='595' r='.8' opacity='.12'/%3E%3Ccircle cx='795' cy='622' r='.7' opacity='.11'/%3E%3Ccircle cx='938' cy='578' r='1' opacity='.13'/%3E%3Ccircle cx='1065' cy='618' r='.8' opacity='.12'/%3E%3Ccircle cx='180' cy='695' r='.7' opacity='.10'/%3E%3Ccircle cx='420' cy='715' r='.8' opacity='.11'/%3E%3Ccircle cx='660' cy='702' r='.7' opacity='.10'/%3E%3Ccircle cx='900' cy='712' r='.8' opacity='.11'/%3E%3Ccircle cx='1100' cy='698' r='.7' opacity='.10'/%3E%3C/g%3E%3Cg fill='%23BAD5F0'%3E%3Ccircle cx='100' cy='378' r='1.3' opacity='.09'/%3E%3Ccircle cx='445' cy='182' r='1.1' opacity='.08'/%3E%3Ccircle cx='775' cy='418' r='1.2' opacity='.09'/%3E%3Ccircle cx='318' cy='558' r='1' opacity='.08'/%3E%3Ccircle cx='918' cy='242' r='1.2' opacity='.09'/%3E%3Ccircle cx='558' cy='678' r='1' opacity='.08'/%3E%3Ccircle cx='138' cy='518' r='1.1' opacity='.08'/%3E%3Ccircle cx='678' cy='312' r='1.2' opacity='.09'/%3E%3Ccircle cx='1048' cy='478' r='1' opacity='.08'/%3E%3Ccircle cx='242' cy='202' r='1.3' opacity='.09'/%3E%3C/g%3E%3Cg fill='%234ADE80'%3E%3Ccircle cx='618' cy='182' r='1' opacity='.05'/%3E%3Ccircle cx='382' cy='422' r='1.1' opacity='.05'/%3E%3Ccircle cx='842' cy='282' r='1' opacity='.05'/%3E%3Ccircle cx='198' cy='548' r='1.2' opacity='.05'/%3E%3Ccircle cx='722' cy='488' r='1' opacity='.05'/%3E%3Ccircle cx='998' cy='182' r='1.1' opacity='.05'/%3E%3C/g%3E%3Cg stroke='%23BAD5F0' stroke-width='.65' stroke-linecap='round' opacity='.20'%3E%3Cline x1='276' y1='122' x2='286' y2='122'/%3E%3Cline x1='281' y1='117' x2='281' y2='127'/%3E%3Cline x1='576' y1='252' x2='586' y2='252'/%3E%3Cline x1='581' y1='247' x2='581' y2='257'/%3E%3Cline x1='916' y1='162' x2='926' y2='162'/%3E%3Cline x1='921' y1='157' x2='921' y2='167'/%3E%3Cline x1='346' y1='442' x2='356' y2='442'/%3E%3Cline x1='351' y1='437' x2='351' y2='447'/%3E%3Cline x1='736' y1='222' x2='746' y2='222'/%3E%3Cline x1='741' y1='217' x2='741' y2='227'/%3E%3Cline x1='1056' y1='382' x2='1066' y2='382'/%3E%3Cline x1='1061' y1='377' x2='1061' y2='387'/%3E%3Cline x1='476' y1='558' x2='486' y2='558'/%3E%3Cline x1='481' y1='553' x2='481' y2='563'/%3E%3Cline x1='258' y1='678' x2='268' y2='678'/%3E%3Cline x1='263' y1='673' x2='263' y2='683'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  -webkit-mask-image: none;
+  mask-image: none;
+  opacity: 1;
+}
+html.light body::after {
+  right: auto !important;
+  left: 50% !important;
+  bottom: -32% !important;
+  width: 148vmin !important;
+  height: 118vmin !important;
+  opacity: 0.18 !important;
+  transform: translateX(-50%) translate3d(0, calc(var(--sy, 0) * 0.04px), 0) !important;
+  will-change: transform !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 400'%3E%3Cg fill='none' stroke='%2316A34A'%3E%3Cellipse cx='250' cy='200' rx='234' ry='188' stroke-width='2.5' opacity='0.68'/%3E%3Cellipse cx='250' cy='200' rx='148' ry='118' stroke-width='1.5' stroke-dasharray='7 6' opacity='0.50'/%3E%3Crect x='229' y='78' width='42' height='244' rx='2' stroke-width='2' opacity='0.60'/%3E%3Cline x1='218' y1='110' x2='282' y2='110' stroke-width='1.5' opacity='0.50'/%3E%3Cline x1='218' y1='290' x2='282' y2='290' stroke-width='1.5' opacity='0.50'/%3E%3Ccircle cx='250' cy='200' r='4' fill='%2316A34A' stroke='none' opacity='0.42'/%3E%3C/g%3E%3C/svg%3E") !important;
+}
+html.light .animate-twinkle { opacity: 0 !important; animation: none !important; }
+
+@keyframes cloud-float-r {
+  0%, 100% { transform: translate(0px,  0px); }
+  40%       { transform: translate(14px, -5px); }
+  75%       { transform: translate(10px,  3px); }
+}
+@keyframes cloud-float-l {
+  0%, 100% { transform: translate(0px,  0px); }
+  40%       { transform: translate(-14px, 4px); }
+  75%       { transform: translate(-9px, -4px); }
+}
+html.light .cloud-a { animation: cloud-float-r 22s ease-in-out infinite; }
+html.light .cloud-b { animation: cloud-float-l 28s ease-in-out infinite; }
+html.light .cloud-c { animation: cloud-float-r 19s ease-in-out infinite; animation-delay: -7s; }
+html.light .cloud-d { animation: cloud-float-l 24s ease-in-out infinite; animation-delay: -10s; }
+html.light .cloud-e { animation: cloud-float-r 17s ease-in-out infinite; animation-delay: -4s; }
+html.light .cloud-f { animation: cloud-float-l 26s ease-in-out infinite; animation-delay: -13s; }
+html.light .cloud-g { animation: cloud-float-r 21s ease-in-out infinite; animation-delay: -8s; }
+html.light .cloud-h { animation: cloud-float-l 30s ease-in-out infinite; animation-delay: -15s; }
+html.light .cloud-i { animation: cloud-float-r 25s ease-in-out infinite; animation-delay: -11s; }
 
 html.light .glass {
-  background: rgba(255, 255, 255, 0.68) !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
-  box-shadow: 0 8px 40px -12px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 10px 40px -16px rgba(15,23,42,0.18), inset 0 1px 0 rgba(255,255,255,0.9) !important;
 }
-
 html.light .glass-strong {
-  background: rgba(255, 255, 255, 0.82) !important;
-  border-color: rgba(0, 0, 0, 0.10) !important;
-  box-shadow: 0 8px 40px -12px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+  background: rgba(255, 255, 255, 0.84) !important;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+  box-shadow: 0 10px 40px -16px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.95) !important;
 }
-
-/* Gradient hairline flips to a dark light-catch on white cards */
 html.light .glass::before,
-html.light .glass-strong::before {
-  background: linear-gradient(
-    135deg,
-    rgba(0, 0, 0, 0.10),
-    rgba(0, 0, 0, 0.03) 38%,
-    rgba(0, 0, 0, 0) 70%
-  );
+html.light .glass-strong::before,
+html.light .card-hero::before,
+html.light .card-action::before,
+html.light .card-utility::before {
+  background: linear-gradient(135deg, rgba(15,23,42,0.10), rgba(15,23,42,0.03) 40%, rgba(15,23,42,0) 72%);
 }
 
-/* --- Text ---
-   Dark theme uses light-on-dark; on light bg we flip heavy text dark,
-   but keep slate-500/600 at their native values — they're already dark
-   enough (#64748B / #475569) and read perfectly on white cards.        */
-html.light .text-white     { color: #0F172A !important; }
-html.light .text-slate-100 { color: #1E293B !important; }
-html.light .text-slate-200 { color: #334155 !important; }
-html.light .text-slate-300 { color: #475569 !important; }
-html.light .text-slate-400 { color: #64748B !important; }
-/* text-slate-500 (#64748B native) and text-slate-600 (#475569 native)
-   are intentionally NOT overridden — they're already readable on light. */
+/* Card tiers on light — premium frosted glass */
+html.light .card-hero {
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(44px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(44px) saturate(190%) !important;
+  border-color: rgba(15, 23, 42, 0.07) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.96),
+    inset 0 -1px 0 rgba(15,23,42,0.04),
+    0 2px 8px -2px rgba(15,23,42,0.08),
+    0 20px 52px -20px rgba(15,23,42,0.16),
+    0 0 48px -22px rgba(22,163,74,0.20) !important;
+}
+html.light .card-action {
+  background: rgba(255, 255, 255, 0.84) !important;
+  backdrop-filter: blur(32px) saturate(185%) brightness(1.01) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(185%) brightness(1.01) !important;
+  border-color: rgba(15, 23, 42, 0.07) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.95),
+    inset 0 -0.5px 0 rgba(15,23,42,0.04),
+    inset 1px 0 0 rgba(255,255,255,0.80),
+    0 2px 8px -2px rgba(15,23,42,0.07),
+    0 10px 32px -10px rgba(15,23,42,0.12) !important;
+}
+html.light .card-utility {
+  background: rgba(255, 255, 255, 0.76) !important;
+  backdrop-filter: blur(20px) saturate(165%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(165%) !important;
+  border-color: rgba(15, 23, 42, 0.06) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.90),
+    0 2px 6px -2px rgba(15,23,42,0.06),
+    0 8px 24px -8px rgba(15,23,42,0.09) !important;
+}
+html.light .elev-action-green {
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.95),
+    inset 0 -0.5px 0 rgba(15,23,42,0.04),
+    inset 1px 0 0 rgba(255,255,255,0.80),
+    0 2px 8px -2px rgba(15,23,42,0.07),
+    0 10px 32px -10px rgba(15,23,42,0.12),
+    0 0 40px -14px rgba(22,163,74,0.28) !important;
+}
+html.light .elev-action-gold {
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.95),
+    inset 0 -0.5px 0 rgba(15,23,42,0.04),
+    inset 1px 0 0 rgba(255,255,255,0.80),
+    0 2px 8px -2px rgba(15,23,42,0.07),
+    0 10px 32px -10px rgba(15,23,42,0.12),
+    0 0 40px -14px rgba(180,83,9,0.22) !important;
+}
+html.light .elev-action-teal {
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.95),
+    inset 0 -0.5px 0 rgba(15,23,42,0.04),
+    inset 1px 0 0 rgba(255,255,255,0.80),
+    0 2px 8px -2px rgba(15,23,42,0.07),
+    0 10px 32px -10px rgba(15,23,42,0.12),
+    0 0 40px -14px rgba(20,184,166,0.22) !important;
+}
+html.light .neu {
+  background: linear-gradient(145deg, #ffffff, #E2E8F0);
+  box-shadow: -3px -3px 7px rgba(255,255,255,0.9), 3px 3px 8px rgba(15,23,42,0.12);
+}
+html.light .neu-inset {
+  background: #E2E8F0;
+  box-shadow: inset 2px 2px 5px rgba(15,23,42,0.12), inset -2px -2px 5px rgba(255,255,255,0.9);
+}
+
+/* --- Text --- */
+html.light .text-white     { color: #09142A !important; }
+html.light .text-slate-100 { color: #18273E !important; }
+html.light .text-slate-200 { color: #2C3E58 !important; }
+html.light .text-slate-300 { color: #415268 !important; }
+html.light .text-slate-400 { color: #596B84 !important; }
 
 /* --- White-tinted backgrounds → dark-tinted --- */
-html.light .bg-white\/5          { background-color: rgba(0,0,0,0.05) !important; }
-html.light .bg-white\/\[0\.02\]  { background-color: rgba(0,0,0,0.02) !important; }
-html.light .bg-white\/\[0\.03\]  { background-color: rgba(0,0,0,0.03) !important; }
-html.light .bg-white\/\[0\.04\]  { background-color: rgba(0,0,0,0.04) !important; }
-html.light .bg-white\/\[0\.05\]  { background-color: rgba(0,0,0,0.05) !important; }
-html.light .bg-white\/\[0\.06\]  { background-color: rgba(0,0,0,0.06) !important; }
+html.light .bg-white\/5          { background-color: rgba(15,23,42,0.05) !important; }
+html.light .bg-white\/\[0\.02\]  { background-color: rgba(15,23,42,0.02) !important; }
+html.light .bg-white\/\[0\.03\]  { background-color: rgba(15,23,42,0.03) !important; }
+html.light .bg-white\/\[0\.04\]  { background-color: rgba(15,23,42,0.04) !important; }
+html.light .bg-white\/\[0\.045\] { background-color: rgba(15,23,42,0.04) !important; }
+html.light .bg-white\/\[0\.05\]  { background-color: rgba(15,23,42,0.05) !important; }
+html.light .bg-white\/\[0\.06\]  { background-color: rgba(15,23,42,0.06) !important; }
+html.light .bg-white\/\[0\.07\]  { background-color: rgba(15,23,42,0.06) !important; }
 
 /* --- White-tinted borders → dark-tinted --- */
-html.light .border-white\/10        { border-color: rgba(0,0,0,0.10) !important; }
-html.light .border-white\/\[0\.06\] { border-color: rgba(0,0,0,0.06) !important; }
-html.light .border-white\/\[0\.08\] { border-color: rgba(0,0,0,0.08) !important; }
+html.light .border-white\/10        { border-color: rgba(15,23,42,0.10) !important; }
+html.light .border-white\/\[0\.06\] { border-color: rgba(15,23,42,0.06) !important; }
+html.light .border-white\/\[0\.08\] { border-color: rgba(15,23,42,0.08) !important; }
+html.light .border-white\/\[0\.12\] { border-color: rgba(15,23,42,0.12) !important; }
 
-/* --- White-tinted rings → dark-tinted (used on locked achievement badges etc.) --- */
-html.light .ring-white\/10          { --tw-ring-color: rgba(0,0,0,0.12) !important; }
-html.light .ring-white\/\[0\.08\]   { --tw-ring-color: rgba(0,0,0,0.12) !important; }
-html.light .ring-white\/\[0\.10\]   { --tw-ring-color: rgba(0,0,0,0.14) !important; }
+/* --- Rings --- */
+html.light .ring-white\/10          { --tw-ring-color: rgba(15,23,42,0.12) !important; }
+html.light .ring-white\/\[0\.08\]   { --tw-ring-color: rgba(15,23,42,0.12) !important; }
+html.light .ring-white\/\[0\.10\]   { --tw-ring-color: rgba(15,23,42,0.14) !important; }
 
-/* --- Divide lines --- */
-html.light .divide-white\/\[0\.06\] > * + * { border-color: rgba(0,0,0,0.08) !important; }
+html.light .divide-white\/\[0\.06\] > * + * { border-color: rgba(15,23,42,0.08) !important; }
 
-/* neon buttons use text-midnight (dark text on green bg) — keep as-is */
+/* ---- Primary green → deep emerald on light ---- */
+html.light .text-neon, html.light .text-azure   { color: #146032 !important; }
+html.light .bg-neon, html.light .bg-azure        { background-color: #16A34A !important; }
+html.light .border-neon\/30, html.light .border-azure\/30 { border-color: rgba(22,163,74,0.50) !important; }
+html.light .border-neon\/40      { border-color: rgba(22,163,74,0.65) !important; }
+html.light .bg-neon\/10, html.light .bg-azure\/10   { background-color: rgba(22,163,74,0.10) !important; }
+html.light .bg-neon\/15, html.light .bg-azure\/15   { background-color: rgba(22,163,74,0.15) !important; }
+html.light .bg-neon\/20, html.light .bg-azure\/20   { background-color: rgba(22,163,74,0.18) !important; }
+html.light .bg-neon\/\[0\.06\], html.light .bg-azure\/\[0\.06\] { background-color: rgba(22,163,74,0.08) !important; }
+html.light .bg-neon\/\[0\.07\]   { background-color: rgba(22,163,74,0.09) !important; }
+html.light .bg-neon\/\[0\.12\]   { background-color: rgba(22,163,74,0.12) !important; }
+html.light .bg-neon\/\[0\.15\]   { background-color: rgba(22,163,74,0.15) !important; }
+html.light .ring-neon\/20, html.light .ring-azure\/20  { --tw-ring-color: rgba(22,163,74,0.25) !important; }
+html.light .ring-neon\/30, html.light .ring-azure\/30  { --tw-ring-color: rgba(22,163,74,0.40) !important; }
+html.light .ring-neon\/40        { --tw-ring-color: rgba(22,163,74,0.55) !important; }
+html.light .hover\:bg-neon\/10:hover, html.light .hover\:bg-azure\/10:hover { background-color: rgba(22,163,74,0.10) !important; }
+html.light .hover\:border-neon\/40:hover { border-color: rgba(22,163,74,0.55) !important; }
+html.light .hover\:bg-neon\/5:hover   { background-color: rgba(22,163,74,0.06) !important; }
+html.light .shadow-glow-green, html.light .shadow-glow-azure {
+  box-shadow: 0 0 20px -8px rgba(22,163,74,0.35), inset 0 1px 0 rgba(255,255,255,0.6) !important;
+}
+html.light .text-glow-green { text-shadow: 0 0 14px rgba(22,163,74,0.45) !important; }
 
-/* ---- Light theme: swap neon #00E676 → emerald #059669 ---- */
-/* Plain text / borders / fills */
-html.light .text-neon            { color: #059669 !important; }
-html.light .bg-neon              { background-color: #059669 !important; }
-html.light .border-neon\/30      { border-color: rgba(5,150,105,0.50) !important; }
-html.light .border-neon\/40      { border-color: rgba(5,150,105,0.65) !important; }
-
-/* Tinted fills */
-html.light .bg-neon\/10          { background-color: rgba(5,150,105,0.10) !important; }
-html.light .bg-neon\/15          { background-color: rgba(5,150,105,0.15) !important; }
-html.light .bg-neon\/20          { background-color: rgba(5,150,105,0.20) !important; }
-html.light .bg-neon\/\[0\.06\]   { background-color: rgba(5,150,105,0.07) !important; }
-html.light .bg-neon\/\[0\.12\]   { background-color: rgba(5,150,105,0.12) !important; }
-html.light .bg-neon\/\[0\.15\]   { background-color: rgba(5,150,105,0.15) !important; }
-
-/* Ring (focus / outline) */
-html.light .ring-neon\/20        { --tw-ring-color: rgba(5,150,105,0.25) !important; }
-html.light .ring-neon\/30        { --tw-ring-color: rgba(5,150,105,0.40) !important; }
-html.light .ring-neon\/40        { --tw-ring-color: rgba(5,150,105,0.55) !important; }
-
-/* Hover tints */
-html.light .hover\:bg-neon\/10:hover  { background-color: rgba(5,150,105,0.10) !important; }
-html.light .hover\:border-neon\/40:hover { border-color: rgba(5,150,105,0.55) !important; }
-html.light .hover\:bg-neon\/5:hover   { background-color: rgba(5,150,105,0.06) !important; }
-
-/* Glow shadow — softer on light bg */
-html.light .shadow-glow-green    { box-shadow: 0 0 22px -6px rgba(5,150,105,0.35), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
-
-/* Text glow */
-html.light .text-glow-green      { text-shadow: 0 0 14px rgba(5,150,105,0.45) !important; }
-
-/* ---- Light theme: deepen azure #00C2FF → #0284C7 (Series accent) ---- */
-html.light .text-azure           { color: #0284C7 !important; }
-html.light .bg-azure\/15         { background-color: rgba(2,132,199,0.14) !important; }
-html.light .bg-azure\/20         { background-color: rgba(2,132,199,0.16) !important; }
-html.light .bg-azure\/\[0\.06\]  { background-color: rgba(2,132,199,0.07) !important; }
-html.light .border-azure\/30     { border-color: rgba(2,132,199,0.45) !important; }
-html.light .ring-azure\/30       { --tw-ring-color: rgba(2,132,199,0.40) !important; }
-html.light .hover\:bg-azure\/10:hover { background-color: rgba(2,132,199,0.10) !important; }
-html.light .shadow-glow-azure    { box-shadow: 0 0 22px -6px rgba(2,132,199,0.32), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
-
-/* ---- Light theme: deepen amber #FFA726 → #D97706 (Tournament / warnings) ---- */
-html.light .text-alert           { color: #D97706 !important; }
-html.light .bg-alert\/10         { background-color: rgba(217,119,6,0.10) !important; }
-html.light .bg-alert\/15         { background-color: rgba(217,119,6,0.14) !important; }
-html.light .bg-alert\/\[0\.06\]  { background-color: rgba(217,119,6,0.07) !important; }
-html.light .border-alert\/30     { border-color: rgba(217,119,6,0.45) !important; }
-html.light .ring-alert\/30       { --tw-ring-color: rgba(217,119,6,0.40) !important; }
-html.light .ring-alert\/40       { --tw-ring-color: rgba(217,119,6,0.50) !important; }
-html.light .hover\:bg-alert\/10:hover { background-color: rgba(217,119,6,0.10) !important; }
-html.light .shadow-glow-amber    { box-shadow: 0 0 22px -6px rgba(217,119,6,0.30), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
-
-/* Wordmark gradient flips to emerald→deep-blue on light */
-html.light .wordmark-accent {
-  background-image: linear-gradient(100deg, #059669 0%, #0284C7 100%);
+/* ---- Accent gold → amber-600 on light (legacy crimson resolves here too) ---- */
+html.light .text-alert, html.light .text-crimson, html.light .text-crimson-soft, html.light .text-alert-soft { color: #B45309 !important; }
+html.light .bg-alert\/5, html.light .bg-crimson\/5     { background-color: rgba(180,83,9,0.06) !important; }
+html.light .bg-alert\/10, html.light .bg-crimson\/10   { background-color: rgba(180,83,9,0.10) !important; }
+html.light .bg-alert\/15, html.light .bg-crimson\/15   { background-color: rgba(180,83,9,0.14) !important; }
+html.light .bg-alert\/20         { background-color: rgba(180,83,9,0.18) !important; }
+html.light .bg-alert\/25         { background-color: rgba(180,83,9,0.22) !important; }
+html.light .bg-alert\/\[0\.06\], html.light .bg-crimson\/\[0\.06\] { background-color: rgba(180,83,9,0.08) !important; }
+html.light .bg-alert, html.light .bg-crimson { background-color: #D97706 !important; }
+html.light .border-alert\/20, html.light .border-crimson\/20 { border-color: rgba(180,83,9,0.30) !important; }
+html.light .border-alert\/30, html.light .border-crimson\/30 { border-color: rgba(180,83,9,0.45) !important; }
+html.light .border-alert\/40, html.light .border-crimson\/40 { border-color: rgba(180,83,9,0.55) !important; }
+html.light .ring-alert\/30, html.light .ring-crimson\/30 { --tw-ring-color: rgba(180,83,9,0.40) !important; }
+html.light .ring-alert\/40       { --tw-ring-color: rgba(180,83,9,0.50) !important; }
+html.light .hover\:bg-alert\/10:hover { background-color: rgba(180,83,9,0.10) !important; }
+html.light .hover\:bg-alert\/25:hover { background-color: rgba(180,83,9,0.22) !important; }
+html.light .shadow-glow-amber, html.light .shadow-glow-crimson {
+  box-shadow: 0 0 20px -8px rgba(180,83,9,0.32), inset 0 1px 0 rgba(255,255,255,0.6) !important;
 }
 
-/* Notification-badge "notch" ring matches the page bg in light mode */
-html.light .ring-midnight { --tw-ring-color: #DDE3EA !important; }
+html.light .wordmark-accent { color: #146032; }
+html.light .ring-midnight { --tw-ring-color: #EEF2F7 !important; }
+
+/* Liquid glass on a light backdrop — premium frosted panel with depth and clarity */
+html.light .glass-box {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(52px) saturate(200%) brightness(1.01) !important;
+  -webkit-backdrop-filter: blur(52px) saturate(200%) brightness(1.01) !important;
+  border-color: rgba(15, 23, 42, 0.07) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.05),
+    inset 1px 0 0 rgba(255, 255, 255, 0.80),
+    0 2px 8px -2px rgba(15, 23, 42, 0.08),
+    0 16px 48px -16px rgba(15, 23, 42, 0.18),
+    0 32px 72px -24px rgba(15, 23, 42, 0.16),
+    0 0 56px -22px rgba(22, 163, 74, 0.24) !important;
+}
+html.light .glass-box::before {
+  background:
+    radial-gradient(ellipse 90% 58% at 16% 0%, rgba(255, 255, 255, 0.88) 0%, transparent 55%),
+    radial-gradient(ellipse 52% 36% at 84% 108%, rgba(15, 23, 42, 0.03) 0%, transparent 55%) !important;
+  -webkit-mask: initial !important;
+          mask: initial !important;
+  -webkit-mask-composite: initial !important;
+          mask-composite: initial !important;
+}
+html.light .glass-box:hover {
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.04),
+    inset 1px 0 0 rgba(255, 255, 255, 0.88),
+    0 2px 10px -2px rgba(15, 23, 42, 0.10),
+    0 20px 56px -16px rgba(15, 23, 42, 0.22),
+    0 40px 80px -24px rgba(15, 23, 42, 0.18),
+    0 0 72px -20px rgba(22, 163, 74, 0.32) !important;
+}
+
+/* ── Midnight bg overrides (sticky header, leaderboard footer) ── */
+html.light .bg-midnight\/70  { background-color: rgba(241,245,250,0.88) !important; }
+html.light .bg-midnight\/80  { background-color: rgba(241,245,250,0.92) !important; }
+html.light .bg-midnight\/90  { background-color: rgba(241,245,250,0.94) !important; }
+
+/* ── Additional bg-white/ overrides ── */
+html.light .bg-white\/20          { background-color: rgba(15,23,42,0.10) !important; }
+html.light .bg-white\/\[0\.025\]  { background-color: rgba(15,23,42,0.025) !important; }
+html.light .bg-white\/\[0\.08\]   { background-color: rgba(15,23,42,0.07) !important; }
+
+/* ── Additional border-white/ overrides ── */
+html.light .border-white\/\[0\.05\] { border-color: rgba(15,23,42,0.05) !important; }
+html.light .border-white\/\[0\.07\] { border-color: rgba(15,23,42,0.07) !important; }
+
+/* ── Gradient from/to overrides ── */
+html.light .from-white\/\[0\.04\] {
+  --tw-gradient-from: rgba(15,23,42,0.04) var(--tw-gradient-from-position) !important;
+}
+html.light .from-white\/\[0\.12\] {
+  --tw-gradient-from: rgba(15,23,42,0.12) var(--tw-gradient-from-position) !important;
+}
+html.light .to-white\/\[0\.12\] {
+  --tw-gradient-to: rgba(15,23,42,0.12) var(--tw-gradient-to-position) !important;
+}
+
+/* ── Teal overrides ── */
+html.light .text-teal, html.light .text-teal-soft { color: #0F766E !important; }
+html.light .bg-teal\/15  { background-color: rgba(20,184,166,0.14) !important; }
+html.light .ring-teal\/30 { --tw-ring-color: rgba(20,184,166,0.40) !important; }
+html.light .border-teal\/25 { border-color: rgba(20,184,166,0.35) !important; }
+html.light .shadow-glow-teal {
+  box-shadow: 0 0 20px -8px rgba(20,184,166,0.30), inset 0 1px 0 rgba(255,255,255,0.6) !important;
+}

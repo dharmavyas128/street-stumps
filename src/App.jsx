@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Home as HomeIcon, Check, Save, Trash2, ArrowRight, Loader2 } from 'lucide-react';
+import { Home as HomeIcon, Check, Save, Trash2, ArrowRight, Loader2, Trophy } from 'lucide-react';
 import { useMatchEngine } from './hooks/useMatchEngine';
 import { useCompetition } from './hooks/useCompetition';
 import { useAuth } from './auth/AuthContext';
@@ -13,7 +13,10 @@ import {
   loadPlayers,
 } from './storage';
 import { listFriendRequests, subscribeToFriendships, listFriendsLiveGames, subscribeToGames } from './data/db';
+import { wasPlayerInGame } from './utils/gameHelpers';
 import Logo from './components/Logo';
+import StarField from './components/StarField';
+import CloudLayer from './components/CloudLayer';
 import ProfileSheet from './components/ProfileSheet';
 import AuthScreen from './components/AuthScreen';
 import ProfileSetup from './components/ProfileSetup';
@@ -29,6 +32,7 @@ import TournamentPlayers from './components/TournamentPlayers';
 import CompetitionHub from './components/CompetitionHub';
 import MatchView from './components/MatchView';
 import WatchView from './components/WatchView';
+import AwardCeremony from './components/AwardCeremony';
 
 const QUICK_STEPS = [
   { id: 'setup', label: 'Rules' },
@@ -75,8 +79,37 @@ export default function App() {
   const [liveGames, setLiveGames] = useState([]);    // friends' live games
   const [watchGame, setWatchGame] = useState(null);  // game being watched
   const [watchEnded, setWatchEnded] = useState(false);
+  // Completed friend games the current user was a player in — persisted so the
+  // scorecard survives page refreshes (cleaned up after 7 days).
+  const [completedFriendGames, setCompletedFriendGames] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ss-completed-friend-games');
+      if (!raw) return [];
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      return JSON.parse(raw).filter((g) => g.savedAt > cutoff);
+    } catch { return []; }
+  });
   const watchGameRef = useRef(null);
   useEffect(() => { watchGameRef.current = watchGame; }, [watchGame]);
+
+  // Compact the header once scrolled, and feed scroll position to the
+  // background layers (via the --sy CSS var) for a very slow parallax drift.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 8); // React bails out when unchanged — cheap
+      document.documentElement.style.setProperty('--sy', String(y));
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Persist completed friend games to localStorage whenever the list changes.
+  useEffect(() => {
+    try { localStorage.setItem('ss-completed-friend-games', JSON.stringify(completedFriendGames)); } catch { /* ignore */ }
+  }, [completedFriendGames]);
 
   // Keep the home-screen counts in sync with the cloud once signed in.
   const refreshCount = async () => {
@@ -121,7 +154,17 @@ export default function App() {
       const wg = watchGameRef.current;
       if (!wg) return;
       if (payload.eventType === 'DELETE') {
-        if (payload.old?.id === wg.game_id) setWatchEnded(true);
+        if (payload.old?.id === wg.game_id) {
+          setWatchEnded(true);
+          // If the current user was a player, save the final state so the
+          // scorecard persists on the Home screen after the game is deleted.
+          if (wasPlayerInGame(wg.data, profile?.name)) {
+            setCompletedFriendGames((prev) => [
+              { ...wg, savedAt: Date.now() },
+              ...prev.filter((g) => g.game_id !== wg.game_id),
+            ]);
+          }
+        }
         return;
       }
       const row = payload.new;
@@ -292,17 +335,33 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col px-4 pb-8 pt-[max(env(safe-area-inset-top),1rem)]">
+      <StarField />
+      <CloudLayer />
       {view !== 'home' && (
-        <header className="mb-4 flex items-center justify-between">
+        <header
+          className={`sticky top-0 z-20 -mx-4 mb-4 flex items-center justify-between px-4 transition-all duration-300 ${
+            scrolled
+              ? 'border-b border-white/10 bg-midnight/70 py-2 backdrop-blur-xl'
+              : 'border-b border-transparent py-1'
+          }`}
+        >
           <button onClick={goHome} className="btn-press flex items-center gap-2.5 text-left">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-neon/15 text-neon ring-1 ring-neon/30">
-              <Logo size={20} />
+            <span
+              className={`grid place-items-center overflow-hidden rounded-xl bg-neon/15 text-neon ring-1 ring-neon/30 transition-all duration-300 ${
+                scrolled ? 'h-8 w-8' : 'h-9 w-9'
+              }`}
+            >
+              <Logo size={scrolled ? 18 : 20} />
             </span>
             <div>
               <h1 className="text-base font-bold tracking-tight text-white">
                 STREET<span className="text-neon"> </span>STUMPS
               </h1>
-              <p className="-mt-0.5 text-[10px] uppercase tracking-[0.2em] text-slate-500">
+              <p
+                className={`-mt-0.5 overflow-hidden text-[10px] uppercase tracking-[0.2em] text-slate-500 transition-all duration-300 ${
+                  scrolled ? 'max-h-0 opacity-0' : 'max-h-4 opacity-100'
+                }`}
+              >
                 Live Cricket Scoring
               </p>
             </div>
@@ -343,6 +402,11 @@ export default function App() {
             requestCount={requestCount}
             liveGames={liveGames}
             onWatch={watchGameOpen}
+            completedFriendGames={completedFriendGames}
+            onViewCompleted={(g) => { setWatchGame(g); setWatchEnded(true); setView('watch'); }}
+            onDismissCompleted={(gameId) =>
+              setCompletedFriendGames((prev) => prev.filter((g) => g.game_id !== gameId))
+            }
             playerCount={playerCount}
             historyCount={historyCount}
             userEmail={user.email}
@@ -351,7 +415,14 @@ export default function App() {
         )}
 
         {view === 'watch' && watchGame && (
-          <WatchView game={watchGame} ended={watchEnded} onBack={exitWatch} />
+          <WatchView game={watchGame} ended={watchEnded} onBack={exitWatch} myName={profile?.name} />
+        )}
+
+        {view === 'award-ceremony' && comp.comp && (
+          <AwardCeremony
+            comp={comp.comp}
+            onBack={() => setView(comp.comp.kind)}
+          />
         )}
 
         {view === 'history' && <MatchHistory onBack={goHome} onResume={resumeGame} />}
@@ -479,6 +550,7 @@ export default function App() {
             {activeFixture && status !== 'setup' && (
               <MatchView
                 engine={engine}
+                matchLabel={activeFixture?.label}
                 onSaveForLater={saveCompForLater}
                 savingForLater={savingForLater}
                 completeFooter={
@@ -499,21 +571,30 @@ export default function App() {
                 onPlayFixture={(id) => comp.beginFixture(id)}
                 footer={
                   comp.comp.done ? (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
                       <button
-                        onClick={goHome}
-                        className="btn-press flex items-center justify-center gap-2 rounded-2xl border border-crimson/40 bg-crimson/15 py-4 text-sm font-bold text-crimson-soft"
+                        onClick={() => setView('award-ceremony')}
+                        className="btn-press sheenable flex w-full items-center justify-center gap-2 rounded-2xl border border-alert/50 bg-alert/10 py-4 text-base font-bold text-alert shadow-glow-amber"
                       >
-                        <Trash2 size={18} />
-                        Delete
+                        <Trophy size={18} fill="currentColor" />
+                        Award Ceremony
                       </button>
-                      <button
-                        onClick={saveComp}
-                        className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
-                      >
-                        <Save size={18} strokeWidth={2.5} />
-                        Save
-                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={goHome}
+                          className="btn-press flex items-center justify-center gap-2 rounded-2xl border border-crimson/40 bg-crimson/15 py-4 text-sm font-bold text-crimson-soft"
+                        >
+                          <Trash2 size={18} />
+                          Delete
+                        </button>
+                        <button
+                          onClick={saveComp}
+                          className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+                        >
+                          <Save size={18} strokeWidth={2.5} />
+                          Save
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button

@@ -47,7 +47,7 @@ export default function TossScreen({ teamAName, teamBName, onBack, onComplete })
 
   return (
     <div className="space-y-4 animate-pop-in">
-      <section className="glass-strong relative overflow-hidden p-6">
+      <section className="card-hero glass-box relative overflow-hidden p-6">
         <div className="pointer-events-none absolute inset-x-0 -top-16 h-40 bg-neon/10 blur-3xl" />
 
         <div className="relative flex items-center justify-center gap-2 text-slate-200">
@@ -120,13 +120,13 @@ export default function TossScreen({ teamAName, teamBName, onBack, onComplete })
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => chooseCaller('A')}
-            className="btn-press rounded-2xl border border-neon/40 bg-neon/15 py-5 text-base font-bold text-neon shadow-glow-green"
+            className="btn-press lift rounded-2xl border border-neon/40 bg-neon/15 py-5 text-base font-bold text-neon shadow-glow-green"
           >
             {teamAName}
           </button>
           <button
             onClick={() => chooseCaller('B')}
-            className="btn-press rounded-2xl border border-alert/40 bg-alert/15 py-5 text-base font-bold text-alert shadow-glow-amber"
+            className="btn-press lift rounded-2xl border border-alert/40 bg-alert/15 py-5 text-base font-bold text-alert shadow-glow-amber"
           >
             {teamBName}
           </button>
@@ -138,7 +138,7 @@ export default function TossScreen({ teamAName, teamBName, onBack, onComplete })
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => chooseCall('heads')}
-              className="btn-press rounded-2xl bg-neon py-5 text-lg font-extrabold uppercase tracking-wide text-midnight shadow-glow-green"
+              className="btn-press sheenable rounded-2xl bg-neon py-5 text-lg font-extrabold uppercase tracking-wide text-midnight shadow-glow-green ring-1 ring-neon-soft/40"
             >
               Heads
             </button>
@@ -162,7 +162,7 @@ export default function TossScreen({ teamAName, teamBName, onBack, onComplete })
         <button
           onClick={flip}
           disabled={phase === 'flipping'}
-          className="btn-press w-full rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green disabled:opacity-60"
+          className="btn-press sheenable w-full rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green ring-1 ring-neon-soft/40 disabled:opacity-60"
         >
           {phase === 'flipping' ? 'Flipping…' : 'Flip the Coin'}
         </button>
@@ -178,7 +178,7 @@ export default function TossScreen({ teamAName, teamBName, onBack, onComplete })
               onClick={() =>
                 onComplete({ winnerId: winner, decision: 'bat', callerId, call })
               }
-              className="btn-press rounded-2xl bg-neon py-5 text-lg font-extrabold uppercase tracking-wide text-midnight shadow-glow-green"
+              className="btn-press sheenable rounded-2xl bg-neon py-5 text-lg font-extrabold uppercase tracking-wide text-midnight shadow-glow-green ring-1 ring-neon-soft/40"
             >
               Bat First
             </button>

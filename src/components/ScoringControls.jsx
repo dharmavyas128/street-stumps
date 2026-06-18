@@ -49,10 +49,10 @@ export default function ScoringControls({
                 key={r}
                 onClick={() => onRuns(r)}
                 disabled={disabled}
-                className={`btn-press scoreboard rounded-2xl py-6 text-3xl font-extrabold ${
+                className={`scoreboard rounded-2xl py-6 text-3xl font-extrabold ${
                   boundary
-                    ? 'bg-neon text-midnight shadow-glow-green'
-                    : 'border border-white/10 bg-white/[0.05] text-white hover:bg-white/[0.08]'
+                    ? 'btn-press sheenable bg-neon text-midnight shadow-glow-green ring-1 ring-neon-soft/40'
+                    : 'neu neu-press text-white'
                 }`}
               >
                 {r}
@@ -75,7 +75,7 @@ export default function ScoringControls({
         <button
           onClick={() => setWicketOpen(true)}
           disabled={disabled}
-          className="btn-press rounded-2xl bg-crimson py-4 text-lg font-bold uppercase tracking-wider text-white shadow-glow-crimson disabled:opacity-40"
+          className="btn-press sheenable rounded-2xl bg-crimson py-4 text-lg font-bold uppercase tracking-wider text-midnight shadow-glow-crimson disabled:opacity-40"
         >
           Wicket
         </button>

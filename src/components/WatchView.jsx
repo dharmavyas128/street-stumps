@@ -1,6 +1,7 @@
-import { ArrowLeft, Radio, Eye } from 'lucide-react';
+import { ArrowLeft, Radio, Eye, Trophy } from 'lucide-react';
 import { getMatchContext } from '../engine/matchEngine';
 import { generateNarrative } from '../engine/narrative';
+import { wasPlayerInGame } from '../utils/gameHelpers';
 import ScoreDisplay from './ScoreDisplay';
 import MatchSummary from './MatchSummary';
 
@@ -11,10 +12,16 @@ import MatchSummary from './MatchSummary';
  *
  * A match game keeps its state in `data.state`; a series/tournament keeps the
  * active fixture's state in `data.activeMatchState` (absent between games).
+ *
+ * `myName` is the current user's profile name. When the game ends:
+ *   - was a player → full scorecard stays, "Match complete" badge
+ *   - pure spectator → soft notice + prompt to go back
  */
-export default function WatchView({ game, onBack, ended = false }) {
+export default function WatchView({ game, onBack, ended = false, myName }) {
   const data = game?.data || {};
   const state = data.state || data.activeMatchState || null;
+  const wasPlayer = wasPlayerInGame(data, myName);
+
   // Guard: a realtime payload could be transient/partial — never crash the view.
   let context = null;
   let narrative = '';
@@ -25,6 +32,22 @@ export default function WatchView({ game, onBack, ended = false }) {
     }
   } catch {
     context = null;
+  }
+
+  // Badge appearance depends on state × ended × wasPlayer
+  let badgeClass, dotClass, badgeLabel;
+  if (!ended) {
+    badgeClass = 'border-crimson/40 bg-crimson/10 text-crimson-soft';
+    dotClass   = 'bg-crimson animate-pulse-glow';
+    badgeLabel = 'Live';
+  } else if (wasPlayer) {
+    badgeClass = 'border-neon/40 bg-neon/10 text-neon';
+    dotClass   = 'bg-neon';
+    badgeLabel = 'Match complete';
+  } else {
+    badgeClass = 'border-white/10 bg-white/5 text-slate-400';
+    dotClass   = 'bg-slate-500';
+    badgeLabel = 'Ended';
   }
 
   return (
@@ -38,56 +61,62 @@ export default function WatchView({ game, onBack, ended = false }) {
           <ArrowLeft size={16} />
           Back
         </button>
-        <span
-          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
-            ended
-              ? 'border-white/10 bg-white/5 text-slate-400'
-              : 'border-crimson/40 bg-crimson/10 text-crimson-soft'
-          }`}
-        >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              ended ? 'bg-slate-500' : 'bg-crimson animate-pulse-glow'
-            }`}
-          />
-          {ended ? 'Ended' : 'Live'}
+        <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${badgeClass}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+          {badgeLabel}
         </span>
       </div>
 
       {/* Who you're watching */}
       <div className="glass flex items-center gap-3 p-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/10 text-neon ring-1 ring-neon/20">
-          <Eye size={16} />
+        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ring-1 ${
+          wasPlayer && ended
+            ? 'bg-neon/10 text-neon ring-neon/20'
+            : 'bg-neon/10 text-neon ring-neon/20'
+        }`}>
+          {wasPlayer && ended ? <Trophy size={16} /> : <Eye size={16} />}
         </span>
         <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-wider text-slate-500">Watching</p>
+          <p className="text-[11px] uppercase tracking-wider text-slate-500">
+            {wasPlayer && ended ? 'You played in this game' : 'Watching'}
+          </p>
           <p className="truncate text-sm font-bold text-white">
             {game?.owner_name ? `${game.owner_name}'s game` : 'Live game'}
           </p>
         </div>
       </div>
 
-      {ended && (
-        <div className="glass rounded-2xl border border-white/10 p-3 text-center text-xs text-slate-400">
-          This game has ended or was closed. Showing the last update.
+      {/* Ended notice — only for pure spectators */}
+      {ended && !wasPlayer && (
+        <div className="glass rounded-2xl border border-white/10 p-4 text-center">
+          <p className="text-sm font-semibold text-slate-300">This game has ended</p>
+          <p className="mt-1 text-xs text-slate-500">You weren't added as a player — the scorecard is no longer available.</p>
+          <button
+            onClick={onBack}
+            className="btn-press mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300"
+          >
+            Back to home
+          </button>
         </div>
       )}
 
-      {/* The scoreboard */}
-      {state && context ? (
-        state.status === 'complete' ? (
-          <MatchSummary state={state} />
+      {/* The scoreboard — always visible for players, hidden for spectators once ended */}
+      {(!ended || wasPlayer) && (
+        state && context ? (
+          state.status === 'complete' ? (
+            <MatchSummary state={state} />
+          ) : (
+            <ScoreDisplay context={context} narrative={narrative} />
+          )
         ) : (
-          <ScoreDisplay context={context} narrative={narrative} />
+          <div className="glass rounded-2xl p-8 text-center">
+            <Radio size={28} className="mx-auto mb-2 animate-pulse-glow text-neon" />
+            <p className="text-sm font-semibold text-slate-300">Waiting for play to start</p>
+            <p className="mt-1 text-xs text-slate-500">
+              The scoreboard will appear here as soon as the next ball is bowled.
+            </p>
+          </div>
         )
-      ) : (
-        <div className="glass rounded-2xl p-8 text-center">
-          <Radio size={28} className="mx-auto mb-2 animate-pulse-glow text-neon" />
-          <p className="text-sm font-semibold text-slate-300">Waiting for play to start</p>
-          <p className="mt-1 text-xs text-slate-500">
-            The scoreboard will appear here as soon as the next ball is bowled.
-          </p>
-        </div>
       )}
     </div>
   );

@@ -49,7 +49,7 @@ export default function CompetitionHub({ comp, onPlayFixture, footer, readOnly =
 
       {/* Champion banner (once the whole series/tournament is done) */}
       {comp.done && (
-        <div className="glass-strong relative overflow-hidden p-6 text-center shadow-glow-green">
+        <div className="glass-strong glass-box relative overflow-hidden p-6 text-center shadow-glow-green">
           <div className="pointer-events-none absolute inset-x-0 -top-16 h-40 bg-neon/15 blur-3xl" />
           <span className="relative mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-300/15 text-amber-300 ring-1 ring-amber-300/30">
             <Trophy size={28} />

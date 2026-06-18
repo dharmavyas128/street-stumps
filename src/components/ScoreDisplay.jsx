@@ -1,4 +1,5 @@
-import { Target, TrendingUp, Gauge, Radio, Crown } from 'lucide-react';
+import { Target, TrendingUp, Gauge, Radio, Crown, Trophy } from 'lucide-react';
+import AnimatedNumber from './AnimatedNumber';
 
 const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2);
 
@@ -7,14 +8,26 @@ const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2);
  * Shows overs, runs/wickets, run rate, target & required rate (2nd innings),
  * a live batsmen tracker, and the punchy Match Context narrative.
  */
-export default function ScoreDisplay({ context, narrative }) {
+export default function ScoreDisplay({ context, narrative, matchLabel }) {
   if (!context) return null;
   const c = context;
+  const isFinal = matchLabel === 'Final';
 
   return (
     <div className="space-y-3">
+      {/* Grand Final banner — only for the tournament final */}
+      {isFinal && (
+        <div className="relative flex items-center justify-center gap-2.5 overflow-hidden rounded-2xl border border-amber-300/40 bg-amber-300/[0.08] py-2.5">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-full bg-gradient-to-r from-transparent via-amber-300/10 to-transparent" />
+          <Trophy size={13} fill="currentColor" className="relative text-amber-300" />
+          <span className="relative text-[11px] font-black uppercase tracking-[0.35em] text-amber-300">
+            Grand Final
+          </span>
+          <Trophy size={13} fill="currentColor" className="relative text-amber-300" />
+        </div>
+      )}
       {/* Primary scoreboard */}
-      <div className="glass-strong relative overflow-hidden p-5">
+      <div className="card-hero relative overflow-hidden p-5">
         {/* faint scanline glow */}
         <div className="pointer-events-none absolute inset-x-0 -top-20 h-40 bg-neon/10 blur-3xl" />
 
@@ -25,7 +38,7 @@ export default function ScoreDisplay({ context, narrative }) {
             </p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="scoreboard text-6xl font-extrabold leading-none text-white text-glow-green">
-                {c.runs}
+                <AnimatedNumber value={c.runs} />
               </span>
               <span className="scoreboard text-3xl font-bold leading-none text-slate-400">
                 /{c.wickets}
@@ -86,7 +99,7 @@ export default function ScoreDisplay({ context, narrative }) {
       </div>
 
       {/* Batsmen tracker */}
-      <div className="glass p-3">
+      <div className="card-utility p-3">
         <div className="mb-2 grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
           <span>Batter</span>
           <span className="w-8 text-right">R</span>
@@ -104,7 +117,7 @@ export default function ScoreDisplay({ context, narrative }) {
       </div>
 
       {/* Match Context narrative */}
-      <div className="glass flex items-start gap-3 p-4">
+      <div className="card-utility flex items-start gap-3 p-4">
         <Radio
           size={18}
           className="mt-0.5 shrink-0 animate-pulse-glow text-neon"
@@ -123,7 +136,7 @@ function Stat({ icon: Icon, label, value, tint }) {
         ? 'text-alert'
         : 'text-slate-100';
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+    <div className="rounded-xl neu-inset px-3 py-2">
       <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
         <Icon size={11} />
         {label}

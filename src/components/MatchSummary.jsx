@@ -1,4 +1,4 @@
-import { Trophy, Handshake, Crown, Star, Zap, Disc3, Hand } from 'lucide-react';
+import { Trophy, Handshake, Crown, Star, Zap, Disc3, Hand, Sparkles } from 'lucide-react';
 import {
   oversText,
   maxWickets,
@@ -14,13 +14,41 @@ import {
  * `footer` lets the caller supply the action buttons (Save/Delete when a match
  * just finished, or a Back button when viewing from history).
  */
-export default function MatchSummary({ state, footer }) {
+export default function MatchSummary({ state, footer, matchLabel }) {
   const { result, innings, config } = state;
   const tie = result?.type === 'tie';
   const awards = computeAwards(state);
+  const isFinal = matchLabel === 'Final';
 
   return (
     <div className="space-y-4 animate-pop-in">
+      {/* Grand Final header */}
+      {isFinal && (
+        <div className="relative overflow-hidden rounded-3xl border border-amber-300/50 bg-amber-300/[0.07] p-6 text-center">
+          {/* Warm glow bloom */}
+          <div className="pointer-events-none absolute inset-x-0 -top-16 h-36 bg-amber-300/25 blur-3xl" />
+          {/* Decorative horizontal rules */}
+          <div className="relative mb-4 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-amber-300/50" />
+            <Star size={14} fill="currentColor" className="text-amber-300" />
+            <Star size={18} fill="currentColor" className="text-amber-300" />
+            <Star size={14} fill="currentColor" className="text-amber-300" />
+            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-amber-300/50" />
+          </div>
+          <p className="relative text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/60">
+            Tournament
+          </p>
+          <h1 className="relative mt-1 text-3xl font-black uppercase tracking-[0.25em] text-amber-300 drop-shadow-[0_0_18px_rgba(251,191,36,0.55)]">
+            Grand Final
+          </h1>
+          <div className="relative mt-4 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-amber-300/50" />
+            <Trophy size={16} fill="currentColor" className="text-amber-300" />
+            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-amber-300/50" />
+          </div>
+        </div>
+      )}
+
       {/* Result banner */}
       <div
         className={`glass-strong relative overflow-hidden p-6 text-center ${

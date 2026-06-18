@@ -1,6 +1,8 @@
-import { Swords, Trophy, ListOrdered, History, ChevronRight, Clock, Users, BarChart3, Bell, Radio, Eye } from 'lucide-react';
+import { Swords, Trophy, ListOrdered, History, ChevronRight, Clock, Users, BarChart3, Bell, Radio, Eye, X } from 'lucide-react';
 import Logo from './Logo';
 import { getMatchContext } from '../engine/matchEngine';
+import StadiumBackdrop from './StadiumBackdrop';
+import { useTheme } from '../hooks/useTheme';
 
 /**
  * Home — landing page. Pick a game mode, manage your player roster, view the
@@ -18,11 +20,15 @@ export default function Home({
   requestCount = 0,
   liveGames = [],
   onWatch,
+  completedFriendGames = [],
+  onViewCompleted,
+  onDismissCompleted,
   playerCount = 0,
   historyCount = 0,
   userEmail,
   userName,
 }) {
+  const isLight = useTheme();
   return (
     <div className="space-y-5">
       {/* Profile avatar bar + notification bell */}
@@ -55,24 +61,105 @@ export default function Home({
 
       {/* Hero */}
       <div
-        className="glass-strong relative overflow-hidden p-7 text-center animate-pop-in [animation-fill-mode:backwards]"
+        className="card-hero glass-box hero-float relative overflow-hidden p-7 text-center animate-pop-in [animation-fill-mode:backwards]"
         style={{ animationDelay: '60ms' }}
       >
-        {/* Slow-drifting aurora behind the wordmark */}
+        {/* ── Liquid glass atmosphere ─────────────────────────────────────
+             Multiple light layers simulate glass refracting a stadium floodlight:
+             caustic blob, off-axis highlight, two angled glass bands, a slow
+             ambient sweep, and a bottom depth gradient. */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-16 left-3 h-40 w-40 rounded-full bg-neon/20 blur-3xl animate-aurora" />
+
+          {/* Layer 1: ambient green field glow drifting behind logo */}
+          <div className="absolute -top-20 left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-neon/15 blur-3xl animate-drift" />
+
+          {/* Layer 2: floodlight cone from above */}
           <div
-            className="absolute -top-12 right-3 h-36 w-36 rounded-full bg-azure/20 blur-3xl animate-aurora"
-            style={{ animationDelay: '-4.5s' }}
+            className="absolute -top-10 left-1/2 h-44 w-80 -translate-x-1/2 opacity-40"
+            style={{ background: 'radial-gradient(closest-side, rgba(191,219,254,0.20), transparent 70%)' }}
+          />
+
+          {/* Layer 3: bright caustic — intense white blob at top-centre,
+               like a focused light source catching the glass face-on */}
+          <div className="absolute -top-6 left-1/2 h-28 w-52 -translate-x-1/2 rounded-full bg-white/[0.06] blur-2xl" />
+
+          {/* Layer 4: off-axis refractive highlight — upper-right,
+               simulates a second light bouncing off an angled surface */}
+          <div className="absolute right-4 top-2 h-16 w-16 rounded-full bg-white/[0.055] blur-xl" />
+
+          {/* Layer 5: primary diagonal glass band — a sharp hairline
+               running upper-left to centre, the main specular streak */}
+          <div
+            className="absolute -left-4 top-6 h-[2px] w-60 bg-white/[0.22] blur-[1.5px]"
+            style={{ transform: 'rotate(22deg)', transformOrigin: 'left center' }}
+          />
+
+          {/* Layer 6: secondary diagonal band — softer, offset lower */}
+          <div
+            className="absolute right-0 top-16 h-[1.5px] w-36 bg-white/[0.09] blur-[1px]"
+            style={{ transform: 'rotate(22deg)', transformOrigin: 'left center' }}
+          />
+
+          {/* Layer 7: slow continuous liquid sweep — a wide light band
+               drifting across the surface on a 7 s loop with a long pause */}
+          <div
+            className="absolute inset-y-0 w-28 animate-liquid-sweep"
+            style={{
+              background:
+                'linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.045) 50%, transparent 80%)',
+            }}
+          />
+
+          {/* Layer 8: bottom depth fade — glass reads thicker at the base */}
+          <div
+            className="absolute bottom-0 inset-x-0 h-20 rounded-b-3xl"
+            style={{ background: isLight
+              ? 'linear-gradient(to top, rgba(15,23,42,0.04), transparent)'
+              : 'linear-gradient(to top, rgba(0,0,0,0.18), transparent)' }}
+          />
+
+          {/* Layer 9: soft lens glow — a faint cool bloom drifting slowly along
+               the top-right curved edge, like a lens flare catching the glass.
+               Very low opacity; the drift keeps it cinematic, never neon. */}
+          <div
+            className="absolute -top-4 right-2 h-20 w-20 rounded-full opacity-60 animate-drift"
+            style={{
+              background: 'radial-gradient(closest-side, rgba(255,255,255,0.10), rgba(191,219,254,0.05) 45%, transparent 72%)',
+              animationDuration: '13s',
+            }}
           />
         </div>
-        <span className="relative mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-neon/15 text-neon ring-1 ring-neon/30">
+        <span className="relative mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-2xl bg-neon/15 text-neon ring-1 ring-neon/30 shadow-glow-green">
           <Logo size={34} />
         </span>
-        <h1 className="relative mt-3 text-2xl font-extrabold tracking-tight text-white">
-          STREET <span className="wordmark-accent">STUMPS</span>
+        <h1 className="relative mt-3 text-2xl font-extrabold tracking-tight">
+          {'STREET'.split('').map((letter, i) => (
+            <span
+              key={`st${i}`}
+              className="inline-block text-white"
+              style={{ animation: `letter-up 0.32s ease-out ${80 + i * 38}ms both` }}
+            >
+              {letter}
+            </span>
+          ))}
+          {/* controlled inter-word gap */}
+          <span className="inline-block" style={{ width: '0.33em' }} />
+          {'STUMPS'.split('').map((letter, i) => (
+            <span
+              key={`su${i}`}
+              className="inline-block wordmark-accent"
+              style={{
+                animation: `letter-up 0.32s ease-out ${310 + i * 38}ms both, stumps-glow 3s ease-in-out 860ms infinite`,
+              }}
+            >
+              {letter}
+            </span>
+          ))}
         </h1>
-        <p className="relative mt-1 text-xs uppercase tracking-[0.25em] text-slate-400">
+        <p
+          className="relative mt-1 text-xs uppercase tracking-[0.25em] text-slate-400 animate-pop-in [animation-fill-mode:backwards]"
+          style={{ animationDelay: '900ms' }}
+        >
           Backyard to Box Office
         </p>
       </div>
@@ -94,7 +181,7 @@ export default function Home({
             <button
               key={g.game_id}
               onClick={() => onWatch?.(g)}
-              className="btn-press group flex w-full items-center gap-3 rounded-2xl border border-crimson/30 bg-crimson/[0.06] p-4 text-left shadow-glow-crimson transition hover:-translate-y-0.5"
+              className="btn-press lift group card-action elev-action-gold flex w-full items-center gap-3 border-crimson/30 p-4 text-left"
             >
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-crimson/15 text-crimson ring-1 ring-crimson/30">
                 <Radio size={20} />
@@ -114,8 +201,61 @@ export default function Home({
         </div>
       )}
 
-      {/* Game modes */}
-      <div className="space-y-3">
+      {/* Completed friend games the user was a player in */}
+      {completedFriendGames.length > 0 && (
+        <div
+          className="space-y-3 animate-pop-in [animation-fill-mode:backwards]"
+          style={{ animationDelay: '110ms' }}
+        >
+          <p className="flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Trophy size={12} className="text-neon" />
+            Played in
+          </p>
+          {completedFriendGames.map((g) => (
+            <div
+              key={g.game_id}
+              className="card-action elev-action-green flex items-center gap-3 border-neon/25 p-4"
+            >
+              <button
+                onClick={() => onViewCompleted?.(g)}
+                className="btn-press flex min-w-0 flex-1 items-center gap-3 text-left"
+              >
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-neon/15 text-neon ring-1 ring-neon/30">
+                  <Trophy size={18} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-white">
+                    {g.owner_name ? `${g.owner_name}'s game` : "Friend's game"}
+                  </span>
+                  <span className="block text-xs text-neon">Tap to view scorecard</span>
+                </span>
+              </button>
+              <button
+                onClick={() => onDismissCompleted?.(g.game_id)}
+                aria-label="Dismiss"
+                className="btn-press grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-400"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Game modes — stadium backdrop floats behind the three format cards */}
+      <div className="relative">
+        {/* Aerial stadium view with crowd — dark mode only */}
+        {!isLight && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-x-4 -top-6 -bottom-4 overflow-hidden rounded-3xl"
+            style={{ opacity: 0.38 }}
+          >
+            <StadiumBackdrop />
+          </div>
+        )}
+
+        <div className="relative space-y-3">
         <p
           className="px-1 text-xs font-semibold uppercase tracking-widest text-slate-500 animate-pop-in [animation-fill-mode:backwards]"
           style={{ animationDelay: '120ms' }}
@@ -127,9 +267,9 @@ export default function Home({
           icon={Swords}
           title="Quick Match"
           tag="1 v 1"
-          tint="green"
+          variant="quick"
           delay={150}
-          description="A single head-to-head game. Set your rules, name the players, flip the toss, and play it out."
+          description="Fast. Sharp. One game decides it. Set your rules, flip the toss, and play."
           onClick={onPlayQuick}
         />
 
@@ -137,9 +277,9 @@ export default function Home({
           icon={ListOrdered}
           title="Series"
           tag="Best of 3 / 5 / 7"
-          tint="azure"
+          variant="series"
           delay={190}
-          description="Two teams, multiple games. Win the majority to take the series."
+          description="Two sides. Multiple games. Hold your nerve and win the majority."
           onClick={onPlaySeries}
         />
 
@@ -147,12 +287,13 @@ export default function Home({
           icon={Trophy}
           title="Tournament"
           tag="3–6 teams"
-          tint="gold"
+          variant="tournament"
           delay={230}
-          description="Round-robin league among several teams, then a final to crown the champion."
+          description="Round-robin league among several teams, then a knockout final."
           onClick={onPlayTournament}
         />
-      </div>
+        </div>{/* end relative space-y-3 */}
+      </div>{/* end relative stadium wrapper */}
 
       {/* My Players + History */}
       <div className="space-y-3">
@@ -208,7 +349,7 @@ function UtilRow({ icon: Icon, title, subtitle, onClick, delay = 0 }) {
     <button
       onClick={onClick}
       style={{ animationDelay: `${delay}ms` }}
-      className="btn-press group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:-translate-y-0.5 hover:border-white/20 animate-pop-in [animation-fill-mode:backwards]"
+      className="btn-press lift group card-utility flex w-full items-center gap-3 p-4 text-left hover:border-white/15 animate-pop-in [animation-fill-mode:backwards]"
     >
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/5 text-slate-300 ring-1 ring-white/10">
         <Icon size={20} />
@@ -222,49 +363,112 @@ function UtilRow({ icon: Icon, title, subtitle, onClick, delay = 0 }) {
   );
 }
 
-/* Each format wears its own accent so the home screen reads at a glance. */
-const MODE_TINTS = {
-  green: {
-    card: 'border-neon/30 bg-neon/[0.06] hover:bg-neon/10 shadow-glow-green',
-    icon: 'bg-neon/15 text-neon ring-neon/30',
+/* Per-format personality: each variant has its own accent colour + glow + decoration. */
+const VARIANT_CONFIG = {
+  quick: {
+    card: 'elev-action-green border-neon/40 hover:border-neon/60 hover:bg-neon/[0.07]',
+    icon: 'bg-neon/20 text-neon ring-neon/35',
     tag: 'bg-neon/15 text-neon',
     chevron: 'text-neon',
   },
-  azure: {
-    card: 'border-azure/30 bg-azure/[0.06] hover:bg-azure/10 shadow-glow-azure',
-    icon: 'bg-azure/15 text-azure ring-azure/30',
-    tag: 'bg-azure/15 text-azure',
-    chevron: 'text-azure',
+  series: {
+    card: 'elev-action-teal border-teal/30 hover:border-teal/50 hover:bg-teal/[0.05]',
+    icon: 'bg-teal/15 text-teal ring-teal/30',
+    tag: 'bg-teal/15 text-teal',
+    chevron: 'text-teal',
   },
-  gold: {
-    card: 'border-alert/30 bg-alert/[0.06] hover:bg-alert/10 shadow-glow-amber',
+  tournament: {
+    card: 'elev-action-gold border-alert/30 hover:border-alert/50 hover:bg-alert/[0.07]',
     icon: 'bg-alert/15 text-alert ring-alert/30',
     tag: 'bg-alert/15 text-alert',
     chevron: 'text-alert',
   },
 };
 
-function ModeCard({ icon: Icon, title, tag, description, onClick, tint = 'green', delay = 0, comingSoon = false }) {
-  const t = MODE_TINTS[tint] ?? MODE_TINTS.green;
+/* Decorative motifs painted absolutely inside each card — subtle but distinct. */
+function ModeDecoration({ variant }) {
+  if (variant === 'quick') {
+    return (
+      <>
+        {/* Left energy stripe */}
+        <div className="pointer-events-none absolute left-0 top-4 bottom-4 w-[2px] rounded-r-full bg-neon/55" />
+        {/* Right speed streaks — motion lines suggesting fast play */}
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-24 overflow-hidden">
+          <svg
+            viewBox="0 0 96 88"
+            className="absolute right-0 top-1/2 -translate-y-1/2 h-[120%] text-neon opacity-[0.17]"
+            fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5"
+          >
+            <line x1="96" y1="12" x2="54" y2="12" />
+            <line x1="96" y1="24" x2="20" y2="24" />
+            <line x1="96" y1="36" x2="62" y2="36" />
+            <line x1="96" y1="48" x2="28" y2="48" />
+            <line x1="96" y1="60" x2="70" y2="60" />
+            <line x1="96" y1="72" x2="38" y2="72" />
+          </svg>
+        </div>
+      </>
+    );
+  }
+  if (variant === 'series') {
+    return (
+      <>
+        {/* Left teal stripe */}
+        <div className="pointer-events-none absolute left-0 top-4 bottom-4 w-[2px] rounded-r-full bg-teal/45" />
+        {/* Top-right timeline dots: game 1 filled, 2 & 3 pending */}
+        <div className="pointer-events-none absolute right-4 top-4 flex items-center gap-1.5 opacity-[0.32]">
+          <div
+            className="h-2 w-2 rounded-full bg-teal"
+            style={{ boxShadow: '0 0 5px rgba(20,184,166,0.75)' }}
+          />
+          <div className="h-px w-4 bg-teal/55" />
+          <div className="h-2 w-2 rounded-full border border-teal/60 bg-teal/20" />
+          <div className="h-px w-4 bg-teal/30" />
+          <div className="h-2 w-2 rounded-full border border-teal/35" />
+        </div>
+      </>
+    );
+  }
+  if (variant === 'tournament') {
+    return (
+      <>
+        {/* Left gold stripe */}
+        <div className="pointer-events-none absolute left-0 top-4 bottom-4 w-[2px] rounded-r-full bg-alert/45" />
+        {/* Top-right crown silhouette */}
+        <div className="pointer-events-none absolute right-3 top-2.5 opacity-[0.16]">
+          <svg viewBox="0 0 44 32" className="h-8 w-11 text-alert" fill="currentColor">
+            <path d="M2 28 L2 20 L11 7 L17 17 L22 2 L27 17 L33 7 L42 20 L42 28 Z" />
+            <rect x="2" y="28" width="40" height="3.5" rx="1.75" />
+          </svg>
+        </div>
+      </>
+    );
+  }
+  return null;
+}
+
+function ModeCard({ icon: Icon, title, tag, description, onClick, variant = 'quick', delay = 0, comingSoon = false }) {
+  const t = VARIANT_CONFIG[variant] ?? VARIANT_CONFIG.quick;
   return (
     <button
       onClick={comingSoon ? undefined : onClick}
       disabled={comingSoon}
       style={{ animationDelay: `${delay}ms` }}
-      className={`btn-press group flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition animate-pop-in [animation-fill-mode:backwards] ${
+      className={`btn-press group card-action flex w-full items-start gap-3.5 p-4 text-left animate-pop-in [animation-fill-mode:backwards] ${
         comingSoon
-          ? 'cursor-not-allowed border-white/10 bg-white/[0.02] opacity-60'
-          : `${t.card} hover:-translate-y-0.5`
+          ? 'cursor-not-allowed opacity-60'
+          : `lift sheenable ${t.card}`
       }`}
     >
+      {!comingSoon && <ModeDecoration variant={variant} />}
       <span
-        className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ring-1 ${
+        className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl ring-1 ${
           comingSoon ? 'bg-white/5 text-slate-400 ring-white/10' : t.icon
         }`}
       >
         <Icon size={20} />
       </span>
-      <span className="min-w-0 flex-1">
+      <span className="relative min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="text-base font-bold text-white">{title}</span>
           {comingSoon ? (
@@ -283,7 +487,7 @@ function ModeCard({ icon: Icon, title, tag, description, onClick, tint = 'green'
         )}
       </span>
       {!comingSoon && (
-        <ChevronRight size={20} className={`mt-1 shrink-0 transition group-hover:translate-x-0.5 ${t.chevron}`} />
+        <ChevronRight size={20} className={`relative mt-1 shrink-0 transition group-hover:translate-x-0.5 ${t.chevron}`} />
       )}
     </button>
   );

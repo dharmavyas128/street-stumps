@@ -31,7 +31,7 @@ export default function ProfileSetup() {
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col px-5 py-10">
       <div className="animate-pop-in space-y-6">
         <div className="text-center">
-          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-neon/15 text-neon ring-1 ring-neon/30">
+          <span className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-2xl bg-neon/15 text-neon ring-1 ring-neon/30 shadow-glow-green">
             <Logo size={34} />
           </span>
           <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white">

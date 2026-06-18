@@ -110,7 +110,7 @@ export default function MatchSetup({ initial, onNext, showSeriesLength = false, 
 
       <button
         type="submit"
-        className="btn-press w-full rounded-2xl bg-neon py-4 text-center text-base font-bold text-midnight shadow-glow-green"
+        className="btn-press sheenable w-full rounded-2xl bg-neon py-4 text-center text-base font-bold text-midnight shadow-glow-green ring-1 ring-neon-soft/40"
       >
         <span className="inline-flex items-center justify-center gap-2">
           {nextLabel}
@@ -158,7 +158,7 @@ function TextField({ label, value, placeholder, onChange }) {
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-slate-100 placeholder:text-slate-500 outline-none transition focus:border-neon/50 focus:ring-2 focus:ring-neon/20"
+        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-base text-slate-100 placeholder:text-slate-500 outline-none transition focus:border-neon/50 focus:bg-white/[0.06] focus:ring-2 focus:ring-neon/25"
       />
     </label>
   );
@@ -167,10 +167,10 @@ function TextField({ label, value, placeholder, onChange }) {
 function SegToggle({ options, value, onChange, tint = 'neon' }) {
   const activeCls =
     tint === 'amber'
-      ? 'bg-alert/15 text-alert ring-1 ring-alert/40'
-      : 'bg-neon/[0.12] text-neon ring-1 ring-neon/40';
+      ? 'bg-alert/15 text-alert ring-1 ring-alert/40 shadow-glow-amber'
+      : 'bg-neon/[0.14] text-neon ring-1 ring-neon/40 shadow-glow-green';
   return (
-    <div className="grid grid-flow-col auto-cols-fr gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+    <div className="grid grid-flow-col auto-cols-fr gap-1 rounded-xl neu-inset p-1">
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -178,8 +178,8 @@ function SegToggle({ options, value, onChange, tint = 'neon' }) {
             key={String(opt.value)}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`btn-press truncate rounded-lg px-2 py-2 text-sm font-semibold transition ${
-              active ? activeCls : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+            className={`neu-press truncate rounded-lg px-2 py-2 text-sm font-semibold transition-colors duration-200 ${
+              active ? activeCls : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             {opt.label}
@@ -194,14 +194,14 @@ function Stepper({ icon: Icon, label, value, min, max, onChange }) {
   const dec = () => onChange(Math.max(min, value - 1));
   const inc = () => onChange(Math.min(max, value + 1));
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
       <Label icon={Icon}>{label}</Label>
       <div className="flex items-center justify-between gap-2">
-        <StepBtn onClick={dec} disabled={value <= min}>
+        <StepBtn onClick={dec} disabled={value <= min} aria-label={`decrease ${label}`}>
           –
         </StepBtn>
-        <span className="scoreboard text-2xl font-bold text-slate-100">{value}</span>
-        <StepBtn onClick={inc} disabled={value >= max}>
+        <span className="scoreboard text-3xl font-extrabold text-white">{value}</span>
+        <StepBtn onClick={inc} disabled={value >= max} aria-label={`increase ${label}`}>
           +
         </StepBtn>
       </div>
@@ -209,13 +209,14 @@ function Stepper({ icon: Icon, label, value, min, max, onChange }) {
   );
 }
 
-function StepBtn({ children, onClick, disabled }) {
+function StepBtn({ children, onClick, disabled, ...rest }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="btn-press grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/5 text-xl font-bold text-slate-200 disabled:opacity-30"
+      className="neu neu-press grid h-10 w-10 place-items-center rounded-xl text-xl font-bold text-slate-100 disabled:opacity-30 disabled:shadow-none"
+      {...rest}
     >
       {children}
     </button>
@@ -227,23 +228,29 @@ function ToggleRow({ icon: Icon, title, subtitle, checked, onChange }) {
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="btn-press flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left"
+      className={`btn-press flex w-full items-center justify-between rounded-2xl border px-4 py-3.5 text-left transition-colors ${
+        checked ? 'border-neon/30 bg-neon/[0.06]' : 'border-white/10 bg-white/[0.03]'
+      }`}
     >
       <span className="flex items-center gap-3">
-        <Icon size={18} className={checked ? 'text-neon' : 'text-slate-400'} />
+        <span className={`grid h-9 w-9 place-items-center rounded-xl ring-1 transition-colors ${
+          checked ? 'bg-neon/15 text-neon ring-neon/30' : 'bg-white/5 text-slate-400 ring-white/10'
+        }`}>
+          <Icon size={17} />
+        </span>
         <span>
           <span className="block text-sm font-semibold text-slate-100">{title}</span>
           <span className="block text-xs text-slate-400">{subtitle}</span>
         </span>
       </span>
       <span
-        className={`relative h-6 w-11 rounded-full transition ${
-          checked ? 'bg-neon shadow-glow-green' : 'bg-white/10'
+        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-300 ${
+          checked ? 'bg-neon shadow-glow-green' : 'neu-inset'
         }`}
       >
         <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
-            checked ? 'left-[22px]' : 'left-0.5'
+          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-md transition-all duration-300 ease-out ${
+            checked ? 'left-[26px]' : 'left-1'
           }`}
         />
       </span>

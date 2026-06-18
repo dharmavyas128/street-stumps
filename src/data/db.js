@@ -91,6 +91,7 @@ function rowToProfile(row) {
     name: row.name,
     battingHand: row.batting_hand === 'left' ? 'left' : 'right',
     bowlingStyle: row.bowling_style,
+    avatar: row.avatar ?? null,
   };
 }
 
@@ -103,20 +104,21 @@ export async function getProfile() {
 }
 
 /** Create or update the signed-in user's profile. */
-export async function upsertProfile({ userId, name, battingHand, bowlingStyle }) {
+export async function upsertProfile({ userId, name, battingHand, bowlingStyle, avatar }) {
   ensure();
+  const patch = {
+    user_id: userId,
+    name: (name || '').trim() || 'Me',
+    batting_hand: battingHand === 'left' ? 'left' : 'right',
+    bowling_style: bowlingStyle,
+    updated_at: new Date().toISOString(),
+  };
+  // Only touch the avatar column when a value was supplied, so saving other
+  // fields never wipes a previously-chosen picture.
+  if (avatar !== undefined) patch.avatar = avatar;
   const { data, error } = await supabase
     .from('profiles')
-    .upsert(
-      {
-        user_id: userId,
-        name: (name || '').trim() || 'Me',
-        batting_hand: battingHand === 'left' ? 'left' : 'right',
-        bowling_style: bowlingStyle,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    )
+    .upsert(patch, { onConflict: 'user_id' })
     .select()
     .single();
   if (error) throw error;

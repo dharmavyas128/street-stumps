@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Edit2, Check, LogOut, UserPlus, Hand, Disc3, Search, Trash2, User, Users, Palette, Moon, Sun, Clock, UserCheck, Loader2, Sparkles, Mail } from 'lucide-react';
+import { X, Edit2, Check, LogOut, UserPlus, Hand, Disc3, Search, Trash2, User, Users, Palette, Moon, Sun, Clock, UserCheck, Loader2, Sparkles, Mail, Shuffle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { careerStats } from '../leaderboard';
 import {
@@ -13,6 +13,12 @@ import {
   listPlayers,
 } from '../data/db';
 import PlayerForm from './PlayerForm';
+import DiceBearAvatar from './DiceBearAvatar';
+import {
+  BG_OPTIONS, SKIN_OPTIONS, SHIRT_OPTIONS, HAIR_COLOR_OPTIONS,
+  BEARD_COLOR_OPTIONS, TOP_OPTIONS, BEARD_OPTIONS,
+  isHatTop, makeConfig, randomizeConfig, configToString, parseConfig,
+} from '../avatars';
 
 const TABS = [
   { id: 'profile', label: 'Personal Info', icon: User },
@@ -45,6 +51,7 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
   // Profile edit
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [avatarCfg, setAvatarCfg] = useState(() => parseConfig(profile?.avatar));
 
   // Stats
   const [myStats, setMyStats] = useState(null);
@@ -61,6 +68,9 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
 
   // Open to the requested tab each time the sheet is shown.
   useEffect(() => { if (open) setTab(initialTab); }, [open, initialTab]);
+
+  // Keep the editable avatar in sync with the saved profile.
+  useEffect(() => { setAvatarCfg(parseConfig(profile?.avatar)); }, [profile?.avatar, editing]);
 
   useEffect(() => {
     if (!open) { setEditing(false); return; }
@@ -193,9 +203,15 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
 
         {/* ── Profile header (always visible) ── */}
         <div className="shrink-0 flex items-center gap-3 px-5 pb-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-neon/15 text-xl font-extrabold text-neon ring-1 ring-neon/30">
-            {initials}
-          </span>
+          {parseConfig(profile?.avatar) ? (
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl ring-1 ring-neon/30">
+              <DiceBearAvatar config={profile.avatar} size={48} className="h-full w-full" />
+            </div>
+          ) : (
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-neon/15 text-xl font-extrabold text-neon ring-1 ring-neon/30">
+              {initials}
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-bold text-white">{profile?.name || 'You'}</p>
             <p className="truncate text-xs text-slate-400">{user?.email}</p>
@@ -272,14 +288,212 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
 
               {/* Edit form */}
               {editing && (
-                <div className="glass animate-pop-in rounded-2xl p-4">
+                <div className="glass animate-pop-in space-y-4 rounded-2xl p-4">
+                  {/* Avatar builder */}
+                  <div className="space-y-4">
+                    <SectionLabel>Profile picture</SectionLabel>
+
+                    {/* Preview + action buttons */}
+                    <div className="flex items-center gap-4">
+                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full ring-2 ring-neon/40">
+                        {avatarCfg ? (
+                          <DiceBearAvatar config={avatarCfg} size={80} className="h-full w-full" />
+                        ) : (
+                          <div className="grid h-full w-full place-items-center bg-neon/15 text-2xl font-extrabold text-neon">
+                            {initials}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-1 flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAvatarCfg(randomizeConfig())}
+                          className="btn-press flex w-full items-center justify-center gap-1.5 rounded-xl border border-neon/30 bg-neon/10 py-2 text-xs font-bold text-neon"
+                        >
+                          <Shuffle size={13} /> Randomize
+                        </button>
+                        {avatarCfg ? (
+                          <button
+                            type="button"
+                            onClick={() => setAvatarCfg(null)}
+                            className="btn-press flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 py-2 text-xs text-slate-400"
+                          >
+                            Use initials
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setAvatarCfg(makeConfig())}
+                            className="btn-press flex w-full items-center justify-center rounded-xl border border-neon/30 bg-neon/10 py-2 text-xs font-bold text-neon"
+                          >
+                            Create avatar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {avatarCfg && (
+                      <>
+                        {/* Skin tone */}
+                        <div>
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Skin Tone</p>
+                          <div className="flex flex-wrap gap-2">
+                            {SKIN_OPTIONS.map((s) => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => setAvatarCfg((c) => ({ ...c, skin: s.id }))}
+                                style={{ background: s.hex }}
+                                aria-label={s.id}
+                                className={`h-8 w-8 rounded-full ring-2 transition ${avatarCfg.skin === s.id ? 'scale-110 ring-neon' : 'ring-white/20 hover:ring-white/40'}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Background */}
+                        <div>
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Background</p>
+                          <div className="flex gap-2">
+                            {BG_OPTIONS.map((b) => (
+                              <button
+                                key={b.id}
+                                type="button"
+                                onClick={() => setAvatarCfg((c) => ({ ...c, bg: b.id }))}
+                                style={{ background: b.hex }}
+                                aria-label={b.id}
+                                className={`h-8 w-8 rounded-full ring-2 transition ${avatarCfg.bg === b.id ? 'scale-110 ring-neon' : 'ring-white/20 hover:ring-white/40'}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* T-shirt colour */}
+                        <div>
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">T-Shirt</p>
+                          <div className="flex flex-wrap gap-2">
+                            {SHIRT_OPTIONS.map((s) => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => setAvatarCfg((c) => ({ ...c, shirt: s.id }))}
+                                style={{ background: s.hex }}
+                                aria-label={s.id}
+                                className={`h-8 w-8 rounded-full ring-2 transition ${avatarCfg.shirt === s.id ? 'scale-110 ring-neon' : 'ring-white/20 hover:ring-white/40'}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Hair style — horizontal scroll with mini avatar previews */}
+                        <div>
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Hair / Style</p>
+                          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                            {TOP_OPTIONS.map((t) => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setAvatarCfg((c) => ({ ...c, top: t.id }))}
+                                className={`flex flex-none flex-col items-center gap-1 rounded-xl px-1 py-1.5 ring-2 transition ${
+                                  avatarCfg.top === t.id ? 'bg-neon/5 ring-neon' : 'ring-transparent hover:ring-white/20'
+                                }`}
+                              >
+                                <div className="h-12 w-12 overflow-hidden rounded-full">
+                                  <DiceBearAvatar config={{ ...avatarCfg, top: t.id }} size={48} className="h-full w-full" />
+                                </div>
+                                <span className="whitespace-nowrap text-[9px] text-slate-400">{t.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Hair color — hidden for hats/hijab/turban */}
+                        {!isHatTop(avatarCfg.top) && (
+                          <div>
+                            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Hair Color</p>
+                            <div className="flex flex-wrap gap-2">
+                              {HAIR_COLOR_OPTIONS.map((h) => (
+                                <button
+                                  key={h.id}
+                                  type="button"
+                                  onClick={() => setAvatarCfg((c) => ({ ...c, hair: h.id }))}
+                                  style={{ background: h.hex }}
+                                  aria-label={h.id}
+                                  className={`h-8 w-8 rounded-full ring-2 transition ${avatarCfg.hair === h.id ? 'scale-110 ring-neon' : 'ring-white/20 hover:ring-white/40'}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Beard style + colour — hidden for hats/hijab/turban */}
+                        {!isHatTop(avatarCfg.top) && (
+                          <>
+                            <div>
+                              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Beard</p>
+                              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                                {/* Clean-shaven option */}
+                                <button
+                                  type="button"
+                                  onClick={() => setAvatarCfg((c) => ({ ...c, beard: false }))}
+                                  className={`flex flex-none flex-col items-center gap-1 rounded-xl px-1 py-1.5 ring-2 transition ${
+                                    !avatarCfg.beard ? 'bg-neon/5 ring-neon' : 'ring-transparent hover:ring-white/20'
+                                  }`}
+                                >
+                                  <div className="h-12 w-12 overflow-hidden rounded-full">
+                                    <DiceBearAvatar config={{ ...avatarCfg, beard: false }} size={48} className="h-full w-full" />
+                                  </div>
+                                  <span className="whitespace-nowrap text-[9px] text-slate-400">None</span>
+                                </button>
+                                {BEARD_OPTIONS.map((b) => (
+                                  <button
+                                    key={b.id}
+                                    type="button"
+                                    onClick={() => setAvatarCfg((c) => ({ ...c, beard: b.id }))}
+                                    className={`flex flex-none flex-col items-center gap-1 rounded-xl px-1 py-1.5 ring-2 transition ${
+                                      avatarCfg.beard === b.id ? 'bg-neon/5 ring-neon' : 'ring-transparent hover:ring-white/20'
+                                    }`}
+                                  >
+                                    <div className="h-12 w-12 overflow-hidden rounded-full">
+                                      <DiceBearAvatar config={{ ...avatarCfg, beard: b.id }} size={48} className="h-full w-full" />
+                                    </div>
+                                    <span className="whitespace-nowrap text-[9px] text-slate-400">{b.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Beard colour — only when a beard is selected */}
+                            {avatarCfg.beard && (
+                              <div>
+                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Beard Color</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {BEARD_COLOR_OPTIONS.map((h) => (
+                                    <button
+                                      key={h.id}
+                                      type="button"
+                                      onClick={() => setAvatarCfg((c) => ({ ...c, beardColor: h.id }))}
+                                      style={{ background: h.hex }}
+                                      aria-label={h.id}
+                                      className={`h-8 w-8 rounded-full ring-2 transition ${avatarCfg.beardColor === h.id ? 'scale-110 ring-neon' : 'ring-white/20 hover:ring-white/40'}`}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+
                   <PlayerForm
                     initial={profile}
                     submitLabel="Save changes"
                     busy={busy}
                     onSubmit={async (data) => {
                       setBusy(true);
-                      try { await saveProfile(data); setEditing(false); }
+                      try { await saveProfile({ ...data, avatar: configToString(avatarCfg) }); setEditing(false); }
                       finally { setBusy(false); }
                     }}
                   />

@@ -470,6 +470,7 @@ export default function App() {
             historyCount={historyCount}
             userEmail={isGuest ? 'guest' : user.email}
             userName={isGuest ? 'Guest' : profile.name}
+            avatarId={isGuest ? null : profile.avatar}
             isGuest={isGuest}
             onSignUp={exitGuest}
           />

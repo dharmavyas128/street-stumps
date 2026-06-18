@@ -63,9 +63,13 @@ create table if not exists public.profiles (
   name          text not null,
   batting_hand  text not null default 'right',
   bowling_style text not null default 'Right-arm fast',
+  avatar        text,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
+
+-- Added after launch: the chosen built-in profile picture id (null = initials).
+alter table public.profiles add column if not exists avatar text;
 
 alter table public.profiles enable row level security;
 

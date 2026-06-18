@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, GitCompare, X, Trophy, Loader2, Info } from 'lucide-react';
 import { getLeaderboard } from '../leaderboard';
+import { useTheme } from '../hooks/useTheme';
 import LeaderboardTable from './LeaderboardTable';
 import CompareModal from './CompareModal';
 
@@ -32,18 +33,22 @@ const FIELDING_RULES = [
 ];
 
 function RulesSheet({ onClose }) {
+  const isLight = useTheme();
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true">
       <button aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col rounded-t-3xl border-t border-white/10 bg-[#0d1117] animate-pop-in" style={{ maxHeight: '88dvh' }}>
+      <div
+        className={`relative z-10 mx-auto flex w-full max-w-md flex-col rounded-t-3xl border-t animate-pop-in ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-[#0d1117]'}`}
+        style={{ maxHeight: '88dvh' }}
+      >
         {/* Pinned header */}
         <div className="shrink-0 px-5 pt-5">
-          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
+          <div className={`mx-auto mb-4 h-1 w-10 rounded-full ${isLight ? 'bg-gray-200' : 'bg-white/20'}`} />
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-bold text-white">Points System</h3>
+            <h3 className={`text-base font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>Points System</h3>
             <button
               onClick={onClose}
-              className="btn-press grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-300"
+              className={`btn-press grid h-9 w-9 place-items-center rounded-lg border ${isLight ? 'border-gray-200 bg-gray-50 text-gray-500' : 'border-white/10 bg-white/5 text-slate-300'}`}
             >
               <X size={18} />
             </button>
@@ -53,9 +58,9 @@ function RulesSheet({ onClose }) {
         {/* Scrollable content */}
         <div className="overflow-y-auto px-5 pb-8">
           <div className="space-y-5">
-            <RulesSection title="Batting" color="neon" rows={BATTING_RULES} note="Milestone bonus applies to your highest score only." />
-            <RulesSection title="Bowling" color="crimson" rows={BOWLING_RULES} note="Haul bonus applies to the highest wicket tier only." />
-            <RulesSection title="Fielding" color="alert" rows={FIELDING_RULES} />
+            <RulesSection title="Batting" color="neon" rows={BATTING_RULES} note="Milestone bonus applies to your highest score only." isLight={isLight} />
+            <RulesSection title="Bowling" color="crimson" rows={BOWLING_RULES} note="Haul bonus applies to the highest wicket tier only." isLight={isLight} />
+            <RulesSection title="Fielding" color="alert" rows={FIELDING_RULES} isLight={isLight} />
           </div>
         </div>
       </div>
@@ -63,7 +68,7 @@ function RulesSheet({ onClose }) {
   );
 }
 
-function RulesSection({ title, color, rows, note }) {
+function RulesSection({ title, color, rows, note, isLight }) {
   const headingColor =
     color === 'neon' ? 'text-neon' : color === 'crimson' ? 'text-crimson-soft' : 'text-alert';
   const dotColor =
@@ -75,25 +80,26 @@ function RulesSection({ title, color, rows, note }) {
         <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
         {title}
       </p>
-      <div className="overflow-hidden rounded-xl border border-white/8 bg-white/[0.03]">
+      <div className={`overflow-hidden rounded-xl border ${isLight ? 'border-gray-100 bg-gray-50' : 'border-white/8 bg-white/[0.03]'}`}>
         {rows.map((row, i) => (
           <div
             key={row.event}
             className={`flex items-center justify-between px-4 py-2.5 text-sm ${
-              i < rows.length - 1 ? 'border-b border-white/5' : ''
+              i < rows.length - 1 ? `border-b ${isLight ? 'border-gray-100' : 'border-white/5'}` : ''
             }`}
           >
-            <span className={row.negative ? 'text-slate-400' : 'text-slate-300'}>{row.event}</span>
+            <span className={row.negative ? (isLight ? 'text-gray-500' : 'text-slate-400') : (isLight ? 'text-gray-700' : 'text-slate-300')}>{row.event}</span>
             <span className={`scoreboard font-bold ${row.negative ? 'text-crimson-soft' : headingColor}`}>{row.pts}</span>
           </div>
         ))}
       </div>
-      {note && <p className="mt-1.5 px-1 text-[10px] text-slate-500">{note}</p>}
+      {note && <p className={`mt-1.5 px-1 text-[10px] ${isLight ? 'text-gray-400' : 'text-slate-500'}`}>{note}</p>}
     </div>
   );
 }
 
 export default function Leaderboard({ onBack }) {
+  const isLight = useTheme();
   const [players, setPlayers] = useState([]);
   const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -195,11 +201,11 @@ export default function Leaderboard({ onBack }) {
       )}
 
       {selected.length === 2 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-midnight/90 backdrop-blur-md">
+        <div className={`fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-md ${isLight ? 'border-gray-200 bg-white/95' : 'border-white/10 bg-midnight/90'}`}>
           <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-3">
-            <div className="flex-1 truncate text-sm text-slate-300">
+            <div className={`flex-1 truncate text-sm ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
               <span className="font-bold text-neon">{selected[0].name}</span>
-              <span className="mx-1.5 text-slate-500">vs</span>
+              <span className={`mx-1.5 ${isLight ? 'text-gray-400' : 'text-slate-500'}`}>vs</span>
               <span className="font-bold text-alert">{selected[1].name}</span>
             </div>
             <button

@@ -4,6 +4,8 @@ import Logo from './Logo';
 import { getMatchContext } from '../engine/matchEngine';
 import StadiumBackdrop from './StadiumBackdrop';
 import { useTheme } from '../hooks/useTheme';
+import { parseConfig } from '../avatars';
+import DiceBearAvatar from './DiceBearAvatar';
 
 /**
  * Home — landing page. Pick a game mode, manage your player roster, view the
@@ -28,6 +30,7 @@ export default function Home({
   historyCount = 0,
   userEmail,
   userName,
+  avatarId = null,
   isGuest = false,
   onSignUp,
 }) {
@@ -41,9 +44,15 @@ export default function Home({
       {userEmail && (
         <div className="flex items-center justify-between pt-1 animate-pop-in [animation-fill-mode:backwards]">
           <button onClick={onOpenProfile} data-tour="profile-bar" className="btn-press flex items-center gap-2.5">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/15 text-neon ring-1 ring-neon/30 text-sm font-extrabold">
-              {(userName || userEmail).charAt(0).toUpperCase()}
-            </span>
+            {parseConfig(avatarId) ? (
+              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl ring-1 ring-neon/30">
+                <DiceBearAvatar config={avatarId} size={36} className="h-full w-full" />
+              </div>
+            ) : (
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/15 text-neon ring-1 ring-neon/30 text-sm font-extrabold">
+                {(userName || userEmail).charAt(0).toUpperCase()}
+              </span>
+            )}
             <div className="text-left">
               <p className="text-sm font-semibold text-white">{userName || 'Profile'}</p>
               <p className="text-[10px] text-slate-500">Tap to view profile</p>

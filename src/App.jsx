@@ -62,7 +62,7 @@ function summarize(state) {
 }
 
 export default function App() {
-  const { user, loading: authLoading, signOut, profile, profileLoading } = useAuth();
+  const { user, loading: authLoading, signOut, profile, profileLoading, isGuest, exitGuest } = useAuth();
   const engine = useMatchEngine();
   const { status } = engine;
   const comp = useCompetition();
@@ -384,11 +384,10 @@ export default function App() {
       </div>
     );
   }
-  if (!user) {
+  if (!user && !isGuest) {
     return <AuthScreen />;
   }
-  if (!profile) {
-    // First run after signup — add yourself as a player before anything else.
+  if (!profile && !isGuest) {
     return <ProfileSetup />;
   }
 
@@ -469,8 +468,10 @@ export default function App() {
             }
             playerCount={playerCount}
             historyCount={historyCount}
-            userEmail={user.email}
-            userName={profile.name}
+            userEmail={isGuest ? 'guest' : user.email}
+            userName={isGuest ? 'Guest' : profile.name}
+            isGuest={isGuest}
+            onSignUp={exitGuest}
           />
         )}
 
@@ -526,22 +527,43 @@ export default function App() {
             onSaveForLater={saveQuickForLater}
             savingForLater={savingForLater}
             completeFooter={
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={goHome}
-                  className="btn-press flex items-center justify-center gap-2 rounded-2xl border border-crimson/40 bg-crimson/15 py-4 text-sm font-bold text-crimson-soft"
-                >
-                  <Trash2 size={18} />
-                  Delete
-                </button>
-                <button
-                  onClick={handleSaveGame}
-                  className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
-                >
-                  <Save size={18} strokeWidth={2.5} />
-                  Save Game
-                </button>
-              </div>
+              isGuest ? (
+                <div className="space-y-2">
+                  <p className="text-center text-xs text-slate-400">
+                    Create a free account to save this scorecard
+                  </p>
+                  <button
+                    onClick={exitGuest}
+                    className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+                  >
+                    <Save size={18} strokeWidth={2.5} />
+                    Sign up & save
+                  </button>
+                  <button
+                    onClick={goHome}
+                    className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] py-3 text-sm font-semibold text-slate-400"
+                  >
+                    Discard & exit
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={goHome}
+                    className="btn-press flex items-center justify-center gap-2 rounded-2xl border border-crimson/40 bg-crimson/15 py-4 text-sm font-bold text-crimson-soft"
+                  >
+                    <Trash2 size={18} />
+                    Delete
+                  </button>
+                  <button
+                    onClick={handleSaveGame}
+                    className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+                  >
+                    <Save size={18} strokeWidth={2.5} />
+                    Save Game
+                  </button>
+                </div>
+              )
             }
           />
         )}

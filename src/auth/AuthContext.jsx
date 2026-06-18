@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -87,6 +88,17 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
   };
 
+  const signInWithGoogle = async () => {
+    if (!isSupabaseConfigured) return NOT_CONFIGURED;
+    return supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+  };
+
+  const enterGuest = () => setIsGuest(true);
+  const exitGuest = () => setIsGuest(false);
+
   const value = {
     session,
     user: session?.user ?? null,
@@ -98,6 +110,10 @@ export function AuthProvider({ children }) {
     signIn,
     signUp,
     signOut,
+    isGuest,
+    enterGuest,
+    exitGuest,
+    signInWithGoogle,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

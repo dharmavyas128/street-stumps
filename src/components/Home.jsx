@@ -1,4 +1,5 @@
-import { Swords, Trophy, ListOrdered, History, ChevronRight, Clock, Users, BarChart3, Bell, Radio, Eye, X } from 'lucide-react';
+import { useState } from 'react';
+import { Swords, Trophy, ListOrdered, History, ChevronRight, Clock, Users, BarChart3, Bell, Radio, Eye, X, Lock, UserPlus } from 'lucide-react';
 import Logo from './Logo';
 import { getMatchContext } from '../engine/matchEngine';
 import StadiumBackdrop from './StadiumBackdrop';
@@ -27,8 +28,12 @@ export default function Home({
   historyCount = 0,
   userEmail,
   userName,
+  isGuest = false,
+  onSignUp,
 }) {
   const isLight = useTheme();
+  const [showLockSheet, setShowLockSheet] = useState(false);
+  const lock = () => setShowLockSheet(true);
 
   return (
     <div className="space-y-5">
@@ -45,18 +50,28 @@ export default function Home({
             </div>
           </button>
 
-          <button
-            onClick={onOpenRequests}
-            aria-label={requestCount > 0 ? `${requestCount} friend requests` : 'Friend requests'}
-            className="btn-press relative grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-300"
-          >
-            <Bell size={18} className={requestCount > 0 ? 'text-neon' : ''} />
-            {requestCount > 0 && (
-              <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-crimson px-1 text-[10px] font-bold text-white ring-2 ring-midnight">
-                {requestCount > 9 ? '9+' : requestCount}
-              </span>
-            )}
-          </button>
+          {isGuest ? (
+            <button
+              onClick={lock}
+              className="btn-press flex items-center gap-1.5 rounded-xl border border-neon/20 bg-neon/[0.06] px-3 py-2 text-xs font-semibold text-neon"
+            >
+              <UserPlus size={14} />
+              Sign up
+            </button>
+          ) : (
+            <button
+              onClick={onOpenRequests}
+              aria-label={requestCount > 0 ? `${requestCount} friend requests` : 'Friend requests'}
+              className="btn-press relative grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-300"
+            >
+              <Bell size={18} className={requestCount > 0 ? 'text-neon' : ''} />
+              {requestCount > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-crimson px-1 text-[10px] font-bold text-white ring-2 ring-midnight">
+                  {requestCount > 9 ? '9+' : requestCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       )}
 
@@ -283,7 +298,8 @@ export default function Home({
           delay={190}
           tourId="mode-series"
           description="Two sides. Multiple games. Hold your nerve and win the majority."
-          onClick={onPlaySeries}
+          onClick={isGuest ? lock : onPlaySeries}
+          isLocked={isGuest}
         />
 
         <ModeCard
@@ -294,10 +310,43 @@ export default function Home({
           delay={230}
           tourId="mode-tournament"
           description="Round-robin league among several teams, then a knockout final."
-          onClick={onPlayTournament}
+          onClick={isGuest ? lock : onPlayTournament}
+          isLocked={isGuest}
         />
         </div>{/* end relative space-y-3 */}
       </div>{/* end relative stadium wrapper */}
+
+      {/* Guest sign-up lock sheet */}
+      {showLockSheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true">
+          <button aria-label="Close" onClick={() => setShowLockSheet(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="glass-strong relative z-10 w-full max-w-md rounded-t-3xl p-6 pb-10 animate-slide-up space-y-4">
+            <div className="mx-auto h-1 w-10 rounded-full bg-white/20" />
+            <div className="flex flex-col items-center gap-2 pt-1 text-center">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-neon/10 text-neon ring-1 ring-neon/20">
+                <Lock size={26} />
+              </span>
+              <h3 className="text-base font-bold text-white">Create a free account</h3>
+              <p className="text-xs text-slate-400">
+                Sign up to unlock Series, Tournament, My Players, Leaderboard and Match History. It's free.
+              </p>
+            </div>
+            <button
+              onClick={() => { setShowLockSheet(false); onSignUp?.(); }}
+              className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+            >
+              <UserPlus size={18} strokeWidth={2.5} />
+              Create free account
+            </button>
+            <button
+              onClick={() => setShowLockSheet(false)}
+              className="btn-press flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] py-3 text-sm font-semibold text-slate-400"
+            >
+              Keep playing as guest
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* My Players + History */}
       <div className="space-y-3">
@@ -307,19 +356,22 @@ export default function Home({
           delay={290}
           tourId="util-players"
           subtitle={
+            isGuest ? 'Sign up to manage your roster' :
             playerCount > 0
               ? `${playerCount} player${playerCount === 1 ? '' : 's'} in your roster`
               : 'Add players to pick from later'
           }
-          onClick={onOpenPlayers}
+          onClick={isGuest ? lock : onOpenPlayers}
+          isLocked={isGuest}
         />
         <UtilRow
           icon={BarChart3}
           title="Leaderboard"
-          subtitle="Rankings, form & head-to-head"
+          subtitle={isGuest ? 'Sign up to see rankings' : 'Rankings, form & head-to-head'}
           delay={330}
           tourId="util-leaderboard"
-          onClick={onOpenLeaderboard}
+          onClick={isGuest ? lock : onOpenLeaderboard}
+          isLocked={isGuest}
         />
         <UtilRow
           icon={History}
@@ -327,11 +379,13 @@ export default function Home({
           delay={370}
           tourId="util-history"
           subtitle={
+            isGuest ? 'Sign up to save scorecards' :
             historyCount > 0
               ? `${historyCount} saved game${historyCount === 1 ? '' : 's'}`
               : 'Saved scorecards appear here'
           }
-          onClick={onOpenHistory}
+          onClick={isGuest ? lock : onOpenHistory}
+          isLocked={isGuest}
         />
       </div>
     </div>
@@ -351,7 +405,7 @@ function liveLabel(game) {
   }
 }
 
-function UtilRow({ icon: Icon, title, subtitle, onClick, delay = 0, tourId }) {
+function UtilRow({ icon: Icon, title, subtitle, onClick, delay = 0, tourId, isLocked = false }) {
   return (
     <button
       onClick={onClick}
@@ -366,7 +420,10 @@ function UtilRow({ icon: Icon, title, subtitle, onClick, delay = 0, tourId }) {
         <span className="block text-sm font-bold text-white">{title}</span>
         <span className="block text-xs text-slate-400">{subtitle}</span>
       </span>
-      <ChevronRight size={18} className="text-slate-500 transition group-hover:translate-x-0.5" />
+      {isLocked
+        ? <Lock size={15} className="text-slate-600" />
+        : <ChevronRight size={18} className="text-slate-500 transition group-hover:translate-x-0.5" />
+      }
     </button>
   );
 }
@@ -455,7 +512,7 @@ function ModeDecoration({ variant }) {
   return null;
 }
 
-function ModeCard({ icon: Icon, title, tag, description, onClick, variant = 'quick', delay = 0, comingSoon = false, tourId }) {
+function ModeCard({ icon: Icon, title, tag, description, onClick, variant = 'quick', delay = 0, comingSoon = false, tourId, isLocked = false }) {
   const t = VARIANT_CONFIG[variant] ?? VARIANT_CONFIG.quick;
   return (
     <button
@@ -496,7 +553,9 @@ function ModeCard({ icon: Icon, title, tag, description, onClick, variant = 'qui
         )}
       </span>
       {!comingSoon && (
-        <ChevronRight size={20} className={`relative mt-1 shrink-0 transition group-hover:translate-x-0.5 ${t.chevron}`} />
+        isLocked
+          ? <Lock size={16} className="relative mt-1 shrink-0 text-slate-600" />
+          : <ChevronRight size={20} className={`relative mt-1 shrink-0 transition group-hover:translate-x-0.5 ${t.chevron}`} />
       )}
     </button>
   );

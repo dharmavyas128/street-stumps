@@ -76,13 +76,24 @@ export default function PlayerSetup({
     setEditing(null);
   };
 
+  const canProceed = captains.A !== null && captains.B !== null;
+
   const finish = () => {
+    if (!canProceed) return;
     const names = (t) => picks[t].map((p) => p?.name || '');
     onNext({ players: { A: names('A'), B: names('B') }, captains, picks });
   };
 
   return (
     <div className="space-y-4 animate-pop-in">
+      {roster.length === 0 && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] px-4 py-3">
+          <span className="mt-0.5 text-base leading-none">💡</span>
+          <p className="text-xs leading-snug text-amber-300/80">
+            Your roster is empty. Go to <span className="font-semibold text-amber-300">My Players</span> from the home screen to save your regulars — they'll show up here as one-tap picks.
+          </p>
+        </div>
+      )}
       <TeamRoster
         title={teamAName}
         picks={picks.A}
@@ -101,6 +112,12 @@ export default function PlayerSetup({
         tint="amber"
       />
 
+      {!canProceed && (
+        <p className="flex items-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-4 py-2.5 text-xs text-amber-300/80">
+          <span className="text-base leading-none">👑</span>
+          Set a captain for both teams to continue.
+        </p>
+      )}
       <div className="grid grid-cols-[auto_1fr] gap-2">
         <button
           onClick={onBack}
@@ -111,7 +128,9 @@ export default function PlayerSetup({
         </button>
         <button
           onClick={finish}
-          className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+          disabled={!canProceed}
+          data-tour="quick-players-next"
+          className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green disabled:opacity-40 disabled:shadow-none"
         >
           Next: Toss
           <ChevronRight size={20} strokeWidth={2.5} />

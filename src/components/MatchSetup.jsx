@@ -110,6 +110,7 @@ export default function MatchSetup({ initial, onNext, showSeriesLength = false, 
 
       <button
         type="submit"
+        data-tour="quick-rules-next"
         className="btn-press sheenable w-full rounded-2xl bg-neon py-4 text-center text-base font-bold text-midnight shadow-glow-green ring-1 ring-neon-soft/40"
       >
         <span className="inline-flex items-center justify-center gap-2">

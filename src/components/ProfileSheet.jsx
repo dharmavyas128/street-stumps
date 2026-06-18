@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Edit2, Check, LogOut, UserPlus, Hand, Disc3, Search, Trash2, User, Users, Palette, Moon, Sun, Clock, UserCheck, Loader2 } from 'lucide-react';
+import { X, Edit2, Check, LogOut, UserPlus, Hand, Disc3, Search, Trash2, User, Users, Palette, Moon, Sun, Clock, UserCheck, Loader2, Sparkles, Mail } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { careerStats } from '../leaderboard';
 import {
@@ -30,7 +30,7 @@ const BADGES = [
   { id: 'veteran',      label: '10-Match Veteran', emoji: '🏆', check: (s) => s.innings >= 10 },
 ];
 
-export default function ProfileSheet({ open, onClose, initialTab = 'profile', onRequestsChange, refreshSignal = 0, onPlayersChanged }) {
+export default function ProfileSheet({ open, onClose, initialTab = 'profile', onRequestsChange, refreshSignal = 0, onPlayersChanged, onStartTutorial }) {
   const { user, profile, saveProfile, signOut } = useAuth();
 
   const [tab, setTab] = useState('profile');
@@ -210,7 +210,7 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
 
         {/* ── Tab bar ── */}
         <div className="shrink-0 px-5 pb-3">
-          <div className="flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+          <div data-tour="profile-tabs" className="flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
             {TABS.map(({ id, label, icon: Icon }) => {
               const active = tab === id;
               const showBadge = id === 'friends' && requests.length > 0;
@@ -365,6 +365,24 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
                   ))}
                 </div>
               </section>
+
+              {/* Tutorial */}
+              <button
+                onClick={onStartTutorial}
+                className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl border border-neon/20 bg-neon/[0.06] py-3.5 text-sm font-semibold text-neon"
+              >
+                <Sparkles size={15} />
+                Start Tutorial
+              </button>
+
+              {/* Contact */}
+              <a
+                href="mailto:dharmavyas128@gmail.com?subject=Street%20Stumps%20Feedback"
+                className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 text-sm font-semibold text-slate-300 hover:border-white/20 hover:text-white"
+              >
+                <Mail size={15} />
+                Contact us
+              </a>
 
               {/* Sign out */}
               <button
@@ -599,6 +617,7 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
               <p className="text-center text-xs text-slate-500">
                 Neon green accents stay in both themes.
               </p>
+
             </div>
           )}
 

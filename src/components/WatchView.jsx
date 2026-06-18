@@ -1,6 +1,6 @@
-import { ArrowLeft, Radio, Eye, Trophy } from 'lucide-react';
+import { ArrowLeft, Radio, Eye, Trophy, Mic } from 'lucide-react';
 import { getMatchContext } from '../engine/matchEngine';
-import { generateNarrative } from '../engine/narrative';
+import { generateNarrative, generateCommentaryLog } from '../engine/narrative';
 import { wasPlayerInGame } from '../utils/gameHelpers';
 import ScoreDisplay from './ScoreDisplay';
 import MatchSummary from './MatchSummary';
@@ -25,10 +25,12 @@ export default function WatchView({ game, onBack, ended = false, myName }) {
   // Guard: a realtime payload could be transient/partial — never crash the view.
   let context = null;
   let narrative = '';
+  let commentaryLog = [];
   try {
     if (state) {
       context = getMatchContext(state);
       narrative = generateNarrative(state);
+      commentaryLog = generateCommentaryLog(state);
     }
   } catch {
     context = null;
@@ -106,7 +108,47 @@ export default function WatchView({ game, onBack, ended = false, myName }) {
           state.status === 'complete' ? (
             <MatchSummary state={state} />
           ) : (
-            <ScoreDisplay context={context} narrative={narrative} />
+            <>
+              <ScoreDisplay context={context} narrative={narrative} />
+              {commentaryLog.length > 0 && (
+                <div className="card-utility p-4">
+                  <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    <Mic size={12} />
+                    Commentary
+                  </p>
+                  <div className="max-h-72 space-y-0 overflow-y-auto">
+                    {commentaryLog.map((entry, i) => (
+                      <div
+                        key={i}
+                        className="flex items-start gap-3 border-b border-white/5 py-2 last:border-0"
+                      >
+                        <span className={`mt-0.5 shrink-0 font-mono text-[10px] w-7 text-right tabular-nums ${
+                          entry.isExtra ? 'text-slate-600' : 'text-slate-500'
+                        }`}>
+                          {entry.isExtra ? '·' : entry.over}
+                        </span>
+                        <span className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                          entry.isWicket ? 'bg-crimson' :
+                          entry.isSix    ? 'bg-alert' :
+                          entry.isFour   ? 'bg-neon' :
+                          entry.isExtra  ? 'bg-slate-600' :
+                          entry.isDot    ? 'bg-slate-700' :
+                                           'bg-slate-500'
+                        }`} />
+                        <p className={`flex-1 text-xs leading-snug ${
+                          entry.isWicket ? 'font-semibold text-crimson-soft' :
+                          entry.isSix    ? 'font-medium text-alert' :
+                          entry.isFour   ? 'text-slate-100' :
+                                           'text-slate-400'
+                        }`}>
+                          {entry.comment}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )
         ) : (
           <div className="glass rounded-2xl p-8 text-center">

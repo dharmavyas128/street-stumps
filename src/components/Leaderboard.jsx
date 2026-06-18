@@ -1,8 +1,97 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, GitCompare, X, Trophy, Loader2 } from 'lucide-react';
+import { ChevronLeft, GitCompare, X, Trophy, Loader2, Info } from 'lucide-react';
 import { getLeaderboard } from '../leaderboard';
 import LeaderboardTable from './LeaderboardTable';
 import CompareModal from './CompareModal';
+
+const BATTING_RULES = [
+  { event: 'Each run scored', pts: '+1' },
+  { event: 'Boundary bonus (4)', pts: '+1' },
+  { event: 'Boundary bonus (6)', pts: '+2' },
+  { event: 'Thirty bonus (30–49 runs)', pts: '+10' },
+  { event: 'Half-century bonus (50–99 runs)', pts: '+20' },
+  { event: 'Century bonus (100+ runs)', pts: '+30' },
+  { event: 'Duck (dismissed for 0)', pts: '−3', negative: true },
+];
+
+const BOWLING_RULES = [
+  { event: 'Each wicket', pts: '+20' },
+  { event: 'Maiden over', pts: '+12' },
+  { event: 'Dot ball', pts: '+0.5' },
+  { event: '3-wicket haul', pts: '+10' },
+  { event: '4-wicket haul', pts: '+15' },
+  { event: '5-wicket haul', pts: '+25' },
+  { event: 'Wide', pts: '−1', negative: true },
+  { event: 'No-ball', pts: '−1', negative: true },
+];
+
+const FIELDING_RULES = [
+  { event: 'Catch', pts: '+10' },
+  { event: 'Run-out', pts: '+10' },
+  { event: 'Stumping', pts: '+12' },
+];
+
+function RulesSheet({ onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true">
+      <button aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col rounded-t-3xl border-t border-white/10 bg-[#0d1117] animate-pop-in" style={{ maxHeight: '88dvh' }}>
+        {/* Pinned header */}
+        <div className="shrink-0 px-5 pt-5">
+          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-base font-bold text-white">Points System</h3>
+            <button
+              onClick={onClose}
+              className="btn-press grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-300"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="overflow-y-auto px-5 pb-8">
+          <div className="space-y-5">
+            <RulesSection title="Batting" color="neon" rows={BATTING_RULES} note="Milestone bonus applies to your highest score only." />
+            <RulesSection title="Bowling" color="crimson" rows={BOWLING_RULES} note="Haul bonus applies to the highest wicket tier only." />
+            <RulesSection title="Fielding" color="alert" rows={FIELDING_RULES} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RulesSection({ title, color, rows, note }) {
+  const headingColor =
+    color === 'neon' ? 'text-neon' : color === 'crimson' ? 'text-crimson-soft' : 'text-alert';
+  const dotColor =
+    color === 'neon' ? 'bg-neon' : color === 'crimson' ? 'bg-crimson' : 'bg-alert';
+
+  return (
+    <div>
+      <p className={`mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider ${headingColor}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+        {title}
+      </p>
+      <div className="overflow-hidden rounded-xl border border-white/8 bg-white/[0.03]">
+        {rows.map((row, i) => (
+          <div
+            key={row.event}
+            className={`flex items-center justify-between px-4 py-2.5 text-sm ${
+              i < rows.length - 1 ? 'border-b border-white/5' : ''
+            }`}
+          >
+            <span className={row.negative ? 'text-slate-400' : 'text-slate-300'}>{row.event}</span>
+            <span className={`scoreboard font-bold ${row.negative ? 'text-crimson-soft' : headingColor}`}>{row.pts}</span>
+          </div>
+        ))}
+      </div>
+      {note && <p className="mt-1.5 px-1 text-[10px] text-slate-500">{note}</p>}
+    </div>
+  );
+}
 
 export default function Leaderboard({ onBack }) {
   const [players, setPlayers] = useState([]);
@@ -11,6 +100,7 @@ export default function Leaderboard({ onBack }) {
   const [isCompareMode, setIsCompareMode] = useState(false);
   const [selectedPlayers, setSelectedPlayers] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   useEffect(() => {
     let on = true;
@@ -51,15 +141,25 @@ export default function Leaderboard({ onBack }) {
           <ChevronLeft size={18} />
           Home
         </button>
-        <button
-          onClick={enterCompare}
-          className={`btn-press flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
-            isCompareMode ? 'border-neon/40 bg-neon/15 text-neon' : 'border-white/10 bg-white/5 text-slate-300'
-          }`}
-        >
-          <GitCompare size={14} />
-          {isCompareMode ? 'Comparing' : 'Compare'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowRules(true)}
+            aria-label="Points system"
+            data-tour="leaderboard-info"
+            className="btn-press grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-400"
+          >
+            <Info size={16} />
+          </button>
+          <button
+            onClick={enterCompare}
+            className={`btn-press flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
+              isCompareMode ? 'border-neon/40 bg-neon/15 text-neon' : 'border-white/10 bg-white/5 text-slate-300'
+            }`}
+          >
+            <GitCompare size={14} />
+            {isCompareMode ? 'Comparing' : 'Compare'}
+          </button>
+        </div>
       </div>
 
       <div className="mb-3 flex items-center gap-2 px-1">
@@ -123,6 +223,8 @@ export default function Leaderboard({ onBack }) {
       {showModal && selected.length === 2 && (
         <CompareModal p1={selected[0]} p2={selected[1]} onClose={() => setShowModal(false)} />
       )}
+
+      {showRules && <RulesSheet onClose={() => setShowRules(false)} />}
     </div>
   );
 }

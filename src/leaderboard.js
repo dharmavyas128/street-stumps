@@ -13,22 +13,45 @@ const REAL_THRESHOLD = 5; // need at least this many real players to skip demo
 
 /**
  * Total Points formula:
- *   +1 / run · +1 / four · +2 / six
- *   HS milestone (best tier only): >=30 +10 · >=50 +20 · >=100 +30
- *   +25 / wicket · +15 / maiden · +1 / dot ball · +10 / catch or run-out
+ *
+ * Batting:
+ *   +1 / run · +1 / four (bonus) · +2 / six (bonus)
+ *   HS milestone (highest tier only): 30–49 +10 · 50–99 +20 · 100+ +30
+ *   −3 / duck (dismissed for 0)
+ *
+ * Bowling:
+ *   +20 / wicket · +12 / maiden · +0.5 / dot ball
+ *   Wicket haul (highest tier only): 3-wkt +10 · 4-wkt +15 · 5-wkt +25
+ *   −1 / wide · −1 / no-ball
+ *
+ * Fielding:
+ *   +10 / catch or run-out · +12 / stumping
  */
 export function totalPoints(p) {
   let pts = 0;
-  pts += p.runs;
-  pts += p.fours * 1;
-  pts += p.sixes * 2;
-  if (p.hs >= 100) pts += 30;
-  else if (p.hs >= 50) pts += 20;
-  else if (p.hs >= 30) pts += 10;
-  pts += p.wickets * 25;
-  pts += p.maidens * 15;
-  pts += p.dotBalls * 1;
-  pts += (p.catches + p.runOuts) * 10;
+
+  // Batting
+  pts += p.runs ?? 0;
+  pts += (p.fours ?? 0) * 1;
+  pts += (p.sixes ?? 0) * 2;
+  const hs = p.hs ?? 0;
+  if (hs >= 100) pts += 30;
+  else if (hs >= 50) pts += 20;
+  else if (hs >= 30) pts += 10;
+  pts -= (p.ducks ?? 0) * 3;
+
+  // Bowling
+  pts += (p.wickets ?? 0) * 20;
+  pts += (p.maidens ?? 0) * 12;
+  pts += (p.dotBalls ?? 0) * 0.5;
+  pts += p.haulPts ?? 0;
+  pts -= (p.wides ?? 0) * 1;
+  pts -= (p.noBalls ?? 0) * 1;
+
+  // Fielding
+  pts += ((p.catches ?? 0) + (p.runOuts ?? 0)) * 10;
+  pts += (p.stumpings ?? 0) * 12;
+
   return pts;
 }
 
@@ -45,13 +68,18 @@ function blank(name) {
     sixes: 0,
     hs: 0,
     outs: 0,
+    ducks: 0,
     wickets: 0,
     runsConceded: 0,
     ballsBowled: 0,
     maidens: 0,
     dotBalls: 0,
+    wides: 0,
+    noBalls: 0,
+    haulPts: 0,
     catches: 0,
     runOuts: 0,
+    stumpings: 0,
     scores: [], // { at, runs } per innings, chronological
   };
 }
@@ -123,7 +151,10 @@ function aggregateStates(entries, { byTeam = false } = {}) {
         p.fours += b.fours;
         p.sixes += b.sixes;
         p.hs = Math.max(p.hs, b.runs);
-        if (b.status === 'out') p.outs += 1;
+        if (b.status === 'out') {
+          p.outs += 1;
+          if (b.runs === 0) p.ducks += 1;
+        }
         p.scores.push({ at, runs: b.runs });
         if (b.dismissal && b.dismissal.fielderId) {
           const fname = idName[b.dismissal.fielderId];
@@ -131,6 +162,7 @@ function aggregateStates(entries, { byTeam = false } = {}) {
             const f = ensure(keyFor(bowlSide, fname), fname, teamNameOf(bowlSide));
             if (b.dismissal.id === 'caught') f.catches += 1;
             else if (b.dismissal.id === 'run_out') f.runOuts += 1;
+            else if (b.dismissal.id === 'stumped') f.stumpings += 1;
           }
         }
       }
@@ -141,14 +173,21 @@ function aggregateStates(entries, { byTeam = false } = {}) {
         p.runsConceded += bw.runs;
         p.ballsBowled += bw.balls;
         p.maidens += bw.maidens;
+        // Wicket haul bonus — highest tier only, calculated per innings.
+        if (bw.wickets >= 5) p.haulPts += 25;
+        else if (bw.wickets >= 4) p.haulPts += 15;
+        else if (bw.wickets >= 3) p.haulPts += 10;
       }
 
-      // Dot balls from the delivery log (legal deliveries that cost 0).
+      // Per-delivery stats from the timeline.
       for (const d of inn.timeline || []) {
+        if (!d.bowlerId || !idName[d.bowlerId]) continue;
+        const bowlerName = idName[d.bowlerId];
+        const bp = ensure(keyFor(bowlSide, bowlerName), bowlerName, teamNameOf(bowlSide));
         const dot = (d.kind === 'run' || d.kind === 'wicket') && (d.runs || 0) === 0;
-        if (dot && d.bowlerId && idName[d.bowlerId]) {
-          ensure(keyFor(bowlSide, idName[d.bowlerId]), idName[d.bowlerId], teamNameOf(bowlSide)).dotBalls += 1;
-        }
+        if (dot) bp.dotBalls += 1;
+        if (d.kind === 'wide') bp.wides += 1;
+        if (d.kind === 'no_ball') bp.noBalls += 1;
       }
     }
   }
@@ -193,12 +232,12 @@ export function competitionLeaderboard(comp) {
 // Demo roster — varied so sorting, milestones, sparklines and compare all pop.
 // ---------------------------------------------------------------------------
 const DEMO_PLAYERS = [
-  { id: 'd1', name: 'Rohit', matches: 9, innings: 9, runs: 412, balls: 268, fours: 38, sixes: 19, hs: 101, outs: 7, wickets: 0, runsConceded: 0, ballsBowled: 0, maidens: 0, dotBalls: 0, catches: 5, runOuts: 1, last5: [101, 12, 64, 8, 73] },
-  { id: 'd2', name: 'Kohli', matches: 9, innings: 9, runs: 458, balls: 351, fours: 41, sixes: 9, hs: 88, outs: 6, wickets: 1, runsConceded: 14, ballsBowled: 12, maidens: 0, dotBalls: 4, catches: 7, runOuts: 2, last5: [88, 55, 41, 67, 9] },
-  { id: 'd3', name: 'Bumrah', matches: 9, innings: 5, runs: 34, balls: 41, fours: 2, sixes: 1, hs: 16, outs: 3, wickets: 22, runsConceded: 198, ballsBowled: 216, maidens: 6, dotBalls: 121, catches: 3, runOuts: 0, last5: [4, 0, 16, 2, 8] },
-  { id: 'd4', name: 'Jadeja', matches: 8, innings: 7, runs: 176, balls: 132, fours: 14, sixes: 6, hs: 52, outs: 5, wickets: 14, runsConceded: 174, ballsBowled: 192, maidens: 3, dotBalls: 88, catches: 9, runOuts: 4, last5: [52, 31, 8, 44, 12] },
-  { id: 'd5', name: 'Warner', matches: 7, innings: 7, runs: 289, balls: 198, fours: 33, sixes: 11, hs: 76, outs: 6, wickets: 0, runsConceded: 0, ballsBowled: 0, maidens: 0, dotBalls: 0, catches: 4, runOuts: 1, last5: [9, 14, 22, 6, 18] },
-  { id: 'd6', name: 'Starc', matches: 7, innings: 4, runs: 41, balls: 33, fours: 3, sixes: 2, hs: 21, outs: 2, wickets: 18, runsConceded: 176, ballsBowled: 168, maidens: 4, dotBalls: 92, catches: 2, runOuts: 0, last5: [21, 6, 0, 11, 3] },
-  { id: 'd7', name: 'Smith', matches: 8, innings: 8, runs: 334, balls: 281, fours: 29, sixes: 4, hs: 64, outs: 7, wickets: 2, runsConceded: 36, ballsBowled: 30, maidens: 0, dotBalls: 9, catches: 6, runOuts: 1, last5: [64, 38, 51, 12, 29] },
-  { id: 'd8', name: 'Pant', matches: 8, innings: 8, runs: 301, balls: 176, fours: 26, sixes: 21, hs: 79, outs: 7, wickets: 0, runsConceded: 0, ballsBowled: 0, maidens: 0, dotBalls: 0, catches: 11, runOuts: 3, last5: [79, 4, 33, 61, 17] },
+  { id: 'd1', name: 'Rohit', matches: 9, innings: 9, runs: 412, balls: 268, fours: 38, sixes: 19, hs: 101, outs: 7, ducks: 1, wickets: 0, runsConceded: 0, ballsBowled: 0, maidens: 0, dotBalls: 0, wides: 0, noBalls: 0, haulPts: 0, catches: 5, runOuts: 1, stumpings: 0, last5: [101, 12, 64, 8, 73] },
+  { id: 'd2', name: 'Kohli', matches: 9, innings: 9, runs: 458, balls: 351, fours: 41, sixes: 9, hs: 88, outs: 6, ducks: 0, wickets: 1, runsConceded: 14, ballsBowled: 12, maidens: 0, dotBalls: 4, wides: 2, noBalls: 1, haulPts: 0, catches: 7, runOuts: 2, stumpings: 0, last5: [88, 55, 41, 67, 9] },
+  { id: 'd3', name: 'Bumrah', matches: 9, innings: 5, runs: 34, balls: 41, fours: 2, sixes: 1, hs: 16, outs: 3, ducks: 1, wickets: 22, runsConceded: 198, ballsBowled: 216, maidens: 6, dotBalls: 121, wides: 8, noBalls: 3, haulPts: 35, catches: 3, runOuts: 0, stumpings: 0, last5: [4, 0, 16, 2, 8] },
+  { id: 'd4', name: 'Jadeja', matches: 8, innings: 7, runs: 176, balls: 132, fours: 14, sixes: 6, hs: 52, outs: 5, ducks: 0, wickets: 14, runsConceded: 174, ballsBowled: 192, maidens: 3, dotBalls: 88, wides: 5, noBalls: 2, haulPts: 20, catches: 9, runOuts: 4, stumpings: 1, last5: [52, 31, 8, 44, 12] },
+  { id: 'd5', name: 'Warner', matches: 7, innings: 7, runs: 289, balls: 198, fours: 33, sixes: 11, hs: 76, outs: 6, ducks: 0, wickets: 0, runsConceded: 0, ballsBowled: 0, maidens: 0, dotBalls: 0, wides: 0, noBalls: 0, haulPts: 0, catches: 4, runOuts: 1, stumpings: 0, last5: [9, 14, 22, 6, 18] },
+  { id: 'd6', name: 'Starc', matches: 7, innings: 4, runs: 41, balls: 33, fours: 3, sixes: 2, hs: 21, outs: 2, ducks: 1, wickets: 18, runsConceded: 176, ballsBowled: 168, maidens: 4, dotBalls: 92, wides: 11, noBalls: 4, haulPts: 25, catches: 2, runOuts: 0, stumpings: 0, last5: [21, 6, 0, 11, 3] },
+  { id: 'd7', name: 'Smith', matches: 8, innings: 8, runs: 334, balls: 281, fours: 29, sixes: 4, hs: 64, outs: 7, ducks: 1, wickets: 2, runsConceded: 36, ballsBowled: 30, maidens: 0, dotBalls: 9, wides: 1, noBalls: 0, haulPts: 0, catches: 6, runOuts: 1, stumpings: 0, last5: [64, 38, 51, 12, 29] },
+  { id: 'd8', name: 'Pant', matches: 8, innings: 8, runs: 301, balls: 176, fours: 26, sixes: 21, hs: 79, outs: 7, ducks: 0, wickets: 0, runsConceded: 0, ballsBowled: 0, maidens: 0, dotBalls: 0, wides: 0, noBalls: 0, haulPts: 0, catches: 11, runOuts: 3, stumpings: 2, last5: [79, 4, 33, 61, 17] },
 ];

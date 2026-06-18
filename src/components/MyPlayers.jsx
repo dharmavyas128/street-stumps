@@ -54,7 +54,7 @@ export default function MyPlayers({ onBack, onChange }) {
         </span>
       </div>
 
-      <section className="glass p-5">
+      <section data-tour="players-add" className="glass p-5">
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
           Add a player
         </p>
@@ -67,12 +67,21 @@ export default function MyPlayers({ onBack, onChange }) {
           Loading your roster…
         </div>
       ) : players.length === 0 ? (
-        <div className="glass flex flex-col items-center gap-2 p-8 text-center">
-          <Users size={30} className="text-slate-600" />
-          <p className="text-sm text-slate-400">No players yet.</p>
-          <p className="text-xs text-slate-500">
-            Add players above — they'll appear when you pick teams.
-          </p>
+        <div className="glass p-5">
+          <div className="mb-3 flex items-center justify-center gap-1.5 text-neon">
+            <svg width="16" height="20" viewBox="0 0 16 20" fill="none" aria-hidden="true">
+              <path d="M8 18V4M8 4L3 9M8 4L13 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className="text-xs font-semibold text-neon">Add your first player above</span>
+          </div>
+          <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 space-y-2">
+            <p className="text-xs font-semibold text-slate-300">Why add players?</p>
+            <ul className="space-y-1.5 text-xs text-slate-400">
+              <li className="flex items-start gap-2"><span className="mt-0.5 h-1 w-1 shrink-0 rounded-full bg-neon/60" />Pick them instantly when setting up any match</li>
+              <li className="flex items-start gap-2"><span className="mt-0.5 h-1 w-1 shrink-0 rounded-full bg-neon/60" />Their batting hand &amp; bowling style auto-fill</li>
+              <li className="flex items-start gap-2"><span className="mt-0.5 h-1 w-1 shrink-0 rounded-full bg-neon/60" />Stats build up on the Leaderboard over time</li>
+            </ul>
+          </div>
         </div>
       ) : (
         <div className="space-y-2">

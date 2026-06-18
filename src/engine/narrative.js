@@ -319,6 +319,44 @@ function situationNarrative(state, ctx) {
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * generateCommentaryLog(state)
+ * Returns all past deliveries as commentary entries, newest first.
+ * Iterates every innings timeline and generates ball-by-ball text using
+ * the delivery index as the phrase seed (stable across re-renders).
+ */
+export function generateCommentaryLog(state) {
+  if (!state?.innings) return [];
+  const log = [];
+
+  state.innings.forEach((inn) => {
+    if (!inn?.timeline?.length) return;
+    let legal = 0;
+
+    inn.timeline.forEach((delivery, i) => {
+      const comment = deliveryComment(inn, delivery, null, i);
+      if (!comment) return;
+
+      const isLegal = delivery.kind !== 'wide' && delivery.kind !== 'no_ball';
+      const runs = delivery.runs ?? 0;
+
+      log.push({
+        comment,
+        over: `${Math.floor(legal / 6)}.${(legal % 6) + 1}`,
+        isExtra: !isLegal,
+        isWicket: delivery.kind === 'wicket',
+        isSix:   delivery.kind === 'run' && !!delivery.boundary && runs === 6,
+        isFour:  delivery.kind === 'run' && !!delivery.boundary && runs === 4,
+        isDot:   delivery.kind === 'run' && runs === 0,
+      });
+
+      if (isLegal) legal++;
+    });
+  });
+
+  return log.reverse();
+}
+
 export function generateNarrative(state, career) {
   if (!state || state.status === 'setup') {
     return 'Set the rules, name your sides, and let battle commence.';

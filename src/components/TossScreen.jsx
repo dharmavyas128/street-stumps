@@ -47,7 +47,7 @@ export default function TossScreen({ teamAName, teamBName, onBack, onComplete })
 
   return (
     <div className="space-y-4 animate-pop-in">
-      <section className="card-hero glass-box relative overflow-hidden p-6">
+      <section data-tour="quick-toss" className="card-hero glass-box relative overflow-hidden p-6">
         <div className="pointer-events-none absolute inset-x-0 -top-16 h-40 bg-neon/10 blur-3xl" />
 
         <div className="relative flex items-center justify-center gap-2 text-slate-200">

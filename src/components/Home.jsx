@@ -29,12 +29,13 @@ export default function Home({
   userName,
 }) {
   const isLight = useTheme();
+
   return (
     <div className="space-y-5">
       {/* Profile avatar bar + notification bell */}
       {userEmail && (
         <div className="flex items-center justify-between pt-1 animate-pop-in [animation-fill-mode:backwards]">
-          <button onClick={onOpenProfile} className="btn-press flex items-center gap-2.5">
+          <button onClick={onOpenProfile} data-tour="profile-bar" className="btn-press flex items-center gap-2.5">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/15 text-neon ring-1 ring-neon/30 text-sm font-extrabold">
               {(userName || userEmail).charAt(0).toUpperCase()}
             </span>
@@ -269,6 +270,7 @@ export default function Home({
           tag="1 v 1"
           variant="quick"
           delay={150}
+          tourId="mode-quick"
           description="Fast. Sharp. One game decides it. Set your rules, flip the toss, and play."
           onClick={onPlayQuick}
         />
@@ -279,6 +281,7 @@ export default function Home({
           tag="Best of 3 / 5 / 7"
           variant="series"
           delay={190}
+          tourId="mode-series"
           description="Two sides. Multiple games. Hold your nerve and win the majority."
           onClick={onPlaySeries}
         />
@@ -289,6 +292,7 @@ export default function Home({
           tag="3–6 teams"
           variant="tournament"
           delay={230}
+          tourId="mode-tournament"
           description="Round-robin league among several teams, then a knockout final."
           onClick={onPlayTournament}
         />
@@ -301,6 +305,7 @@ export default function Home({
           icon={Users}
           title="My Players"
           delay={290}
+          tourId="util-players"
           subtitle={
             playerCount > 0
               ? `${playerCount} player${playerCount === 1 ? '' : 's'} in your roster`
@@ -313,12 +318,14 @@ export default function Home({
           title="Leaderboard"
           subtitle="Rankings, form & head-to-head"
           delay={330}
+          tourId="util-leaderboard"
           onClick={onOpenLeaderboard}
         />
         <UtilRow
           icon={History}
           title="Match History"
           delay={370}
+          tourId="util-history"
           subtitle={
             historyCount > 0
               ? `${historyCount} saved game${historyCount === 1 ? '' : 's'}`
@@ -344,10 +351,11 @@ function liveLabel(game) {
   }
 }
 
-function UtilRow({ icon: Icon, title, subtitle, onClick, delay = 0 }) {
+function UtilRow({ icon: Icon, title, subtitle, onClick, delay = 0, tourId }) {
   return (
     <button
       onClick={onClick}
+      data-tour={tourId}
       style={{ animationDelay: `${delay}ms` }}
       className="btn-press lift group card-utility flex w-full items-center gap-3 p-4 text-left hover:border-white/15 animate-pop-in [animation-fill-mode:backwards]"
     >
@@ -447,12 +455,13 @@ function ModeDecoration({ variant }) {
   return null;
 }
 
-function ModeCard({ icon: Icon, title, tag, description, onClick, variant = 'quick', delay = 0, comingSoon = false }) {
+function ModeCard({ icon: Icon, title, tag, description, onClick, variant = 'quick', delay = 0, comingSoon = false, tourId }) {
   const t = VARIANT_CONFIG[variant] ?? VARIANT_CONFIG.quick;
   return (
     <button
       onClick={comingSoon ? undefined : onClick}
       disabled={comingSoon}
+      data-tour={tourId}
       style={{ animationDelay: `${delay}ms` }}
       className={`btn-press group card-action flex w-full items-start gap-3.5 p-4 text-left animate-pop-in [animation-fill-mode:backwards] ${
         comingSoon

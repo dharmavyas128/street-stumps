@@ -33,6 +33,8 @@ import CompetitionHub from './components/CompetitionHub';
 import MatchView from './components/MatchView';
 import WatchView from './components/WatchView';
 import AwardCeremony from './components/AwardCeremony';
+import TourOverlay from './tour/TourOverlay';
+import { TOUR_STEPS, DEMO_TOUR_DRAFT } from './tour/tourSteps';
 
 const QUICK_STEPS = [
   { id: 'setup', label: 'Rules' },
@@ -79,6 +81,9 @@ export default function App() {
   const [liveGames, setLiveGames] = useState([]);    // friends' live games
   const [watchGame, setWatchGame] = useState(null);  // game being watched
   const [watchEnded, setWatchEnded] = useState(false);
+  // Guided product tour (spotlight walkthrough launched from the profile sheet).
+  const [tourActive, setTourActive] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
   // Completed friend games the current user was a player in — persisted so the
   // scorecard survives page refreshes (cleaned up after 7 days).
   const [completedFriendGames, setCompletedFriendGames] = useState(() => {
@@ -220,7 +225,61 @@ export default function App() {
     comp.reset();
     setResumeId(null);
     setView(v);
+    // During the tour, pre-fill the Quick Match wizard with demo data so each
+    // screen looks complete without the user typing. No real match is created.
+    if (tourActive && v === 'quick') setDraft(DEMO_TOUR_DRAFT);
   };
+
+  // ---- Guided tour controls ----
+  const startTour = () => {
+    setProfileSheetOpen(false);
+    resetMatch();
+    comp.reset();
+    setResumeId(null);
+    setView('home');
+    setTourStep(0);
+    setTourActive(true);
+  };
+  const endTour = () => {
+    setTourActive(false);
+    setProfileSheetOpen(false);
+    goHome();
+  };
+  const tourNext = () => {
+    const cur = TOUR_STEPS[tourStep];
+    // Side effects when leaving certain info steps (return the app to a place
+    // where the next step's highlighted element exists).
+    switch (cur?.key) {
+      case 'profile-tabs':
+        setProfileSheetOpen(false);
+        setView('home');
+        break;
+      case 'quick-toss':
+        resetMatch();
+        setView('home');
+        break;
+      case 'players-add':
+      case 'leaderboard-points':
+        setView('home');
+        break;
+      default:
+        break;
+    }
+    if (tourStep + 1 >= TOUR_STEPS.length) { endTour(); return; }
+    setTourStep((i) => i + 1);
+  };
+
+  // Auto-advance "tap" steps: once the user taps the highlighted element and the
+  // app navigates into the next step's location, move the tour forward.
+  useEffect(() => {
+    if (!tourActive) return;
+    const cur = TOUR_STEPS[tourStep];
+    if (!cur || cur.advance !== 'tap') return;
+    const next = TOUR_STEPS[tourStep + 1];
+    if (!next) return;
+    const s = { view, wizardStep: step, sheetOpen: profileSheetOpen };
+    if (next.where(s) && !cur.where(s)) setTourStep((i) => i + 1);
+  }, [tourActive, tourStep, view, step, profileSheetOpen]);
 
   // ---- Shared setup wizard (Quick + Series) ----
   const handleSetupNext = (form) => {
@@ -386,6 +445,7 @@ export default function App() {
         onRequestsChange={setRequestCount}
         refreshSignal={friendsTick}
         onPlayersChanged={refreshCount}
+        onStartTutorial={startTour}
       />
 
       <main className="flex-1">
@@ -612,6 +672,16 @@ export default function App() {
           </>
         )}
       </main>
+
+      {tourActive && (
+        <TourOverlay
+          step={TOUR_STEPS[tourStep]}
+          index={tourStep}
+          total={TOUR_STEPS.length}
+          onNext={tourNext}
+          onSkip={endTour}
+        />
+      )}
     </div>
   );
 }

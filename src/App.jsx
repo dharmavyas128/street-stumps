@@ -230,6 +230,17 @@ export default function App() {
     if (tourActive && v === 'quick') setDraft(DEMO_TOUR_DRAFT);
   };
 
+  // Auto-launch tour once for first-time users (after profile setup completes).
+  const tourAutoLaunched = useRef(false);
+  useEffect(() => {
+    if (!profile || isGuest || tourAutoLaunched.current) return;
+    tourAutoLaunched.current = true;
+    if (!localStorage.getItem('ss-tour-seen')) {
+      const t = setTimeout(() => { setTourStep(0); setTourActive(true); }, 400);
+      return () => clearTimeout(t);
+    }
+  }, [profile, isGuest]);
+
   // ---- Guided tour controls ----
   const startTour = () => {
     setProfileSheetOpen(false);
@@ -243,6 +254,7 @@ export default function App() {
   const endTour = () => {
     setTourActive(false);
     setProfileSheetOpen(false);
+    localStorage.setItem('ss-tour-seen', '1');
     goHome();
   };
   const tourNext = () => {

@@ -180,13 +180,14 @@ returns table (
   name          text,
   batting_hand  text,
   bowling_style text,
+  avatar        text,
   status        text
 )
 language plpgsql security definer set search_path = public
 as $$
 begin
   return query
-  select p.user_id, p.name, p.batting_hand, p.bowling_style,
+  select p.user_id, p.name, p.batting_hand, p.bowling_style, p.avatar,
          case
            when f.status = 'accepted' then 'friends'
            when f.status = 'pending' and f.requester_id = auth.uid() then 'outgoing'
@@ -250,13 +251,14 @@ returns table (
   name          text,
   batting_hand  text,
   bowling_style text,
+  avatar        text,
   created_at    timestamptz
 )
 language plpgsql security definer set search_path = public
 as $$
 begin
   return query
-  select f.id, p.user_id, p.name, p.batting_hand, p.bowling_style, f.created_at
+  select f.id, p.user_id, p.name, p.batting_hand, p.bowling_style, p.avatar, f.created_at
   from   public.friendships f
   join   public.profiles p on p.user_id = f.requester_id
   where  f.addressee_id = auth.uid()
@@ -300,13 +302,14 @@ returns table (
   name          text,
   batting_hand  text,
   bowling_style text,
+  avatar        text,
   added_at      timestamptz
 )
 language plpgsql security definer set search_path = public
 as $$
 begin
   return query
-  select p.user_id, p.name, p.batting_hand, p.bowling_style,
+  select p.user_id, p.name, p.batting_hand, p.bowling_style, p.avatar,
          coalesce(f.responded_at, f.created_at)
   from   public.friendships f
   join   public.profiles p

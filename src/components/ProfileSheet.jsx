@@ -621,9 +621,15 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
                   </SectionLabel>
                   {requests.map((r) => (
                     <div key={r.request_id} className="glass animate-pop-in flex items-center gap-3 rounded-xl px-3 py-2.5">
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-azure/10 text-sm font-bold text-azure ring-1 ring-azure/30">
-                        {(r.name || '?').charAt(0).toUpperCase()}
-                      </span>
+                      {parseConfig(r.avatar) ? (
+                        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl ring-1 ring-azure/30">
+                          <DiceBearAvatar config={r.avatar} size={36} className="h-full w-full" />
+                        </div>
+                      ) : (
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-azure/10 text-sm font-bold text-azure ring-1 ring-azure/30">
+                          {(r.name || '?').charAt(0).toUpperCase()}
+                        </span>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-slate-100">{r.name}</p>
                         <p className="text-[11px] text-slate-500">wants to be friends</p>
@@ -670,9 +676,15 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
                 <div className="glass animate-pop-in rounded-2xl p-3">
                   {searchResult.found ? (
                     <div className="flex items-center gap-3">
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/10 text-sm font-bold text-neon ring-1 ring-neon/20">
-                        {searchResult.data.name.charAt(0).toUpperCase()}
-                      </span>
+                      {parseConfig(searchResult.data.avatar) ? (
+                        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl ring-1 ring-neon/20">
+                          <DiceBearAvatar config={searchResult.data.avatar} size={36} className="h-full w-full" />
+                        </div>
+                      ) : (
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/10 text-sm font-bold text-neon ring-1 ring-neon/20">
+                          {searchResult.data.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-100">{searchResult.data.name}</p>
                         <p className="text-[11px] text-slate-500">
@@ -722,9 +734,15 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
                     const busy = addingPlayer === f.friend_id;
                     return (
                       <div key={f.friend_id} className="glass flex items-center gap-2.5 rounded-xl px-3 py-2.5">
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/10 text-sm font-bold text-neon ring-1 ring-neon/20">
-                          {(f.name || '?').charAt(0).toUpperCase()}
-                        </span>
+                        {parseConfig(f.avatar) ? (
+                          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl ring-1 ring-neon/20">
+                            <DiceBearAvatar config={f.avatar} size={36} className="h-full w-full" />
+                          </div>
+                        ) : (
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/10 text-sm font-bold text-neon ring-1 ring-neon/20">
+                            {(f.name || '?').charAt(0).toUpperCase()}
+                          </span>
+                        )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-slate-100">{f.name}</p>
                           <p className="text-[11px] text-slate-500">

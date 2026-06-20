@@ -1,4 +1,4 @@
-# Cyber-Field 🏏
+# Street Stumps 🏏
 
 A mobile-first **local cricket scoring & team management** web app with a premium
 evening-stadium aesthetic. Built with **React (Vite)**, **Tailwind CSS**, and

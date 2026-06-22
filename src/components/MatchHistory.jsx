@@ -11,13 +11,26 @@ import CompetitionHub from './CompetitionHub';
 
 const isComp = (r) => r.kind === 'series' || r.kind === 'tournament';
 
+/** True if `playerName` appears as a batsman or bowler in any innings of the record. */
+function appearedIn(record, playerName) {
+  if (!playerName) return false;
+  const innings = record.state?.innings ||
+    (record.comp?.fixtures || []).flatMap((f) => f.matchState?.innings || []);
+  return innings.some(
+    (inn) =>
+      inn &&
+      ((inn.batsmen || []).some((b) => b.name === playerName) ||
+        (inn.bowlers || []).some((b) => b.name === playerName)),
+  );
+}
+
 /**
  * MatchHistory — browse saved games (Quick matches and competitions). Shows own
  * games plus accepted friends' saved games so every participant can review
  * scorecards. Only the owner can delete, edit, or resume a game.
  */
 export default function MatchHistory({ onBack, onResume }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -29,7 +42,12 @@ export default function MatchHistory({ onBack, onResume }) {
   useEffect(() => {
     let on = true;
     loadOwnAndFriendsGames()
-      .then((list) => on && setMatches(list))
+      .then((list) => {
+        if (!on) return;
+        // Own games always show; friends' games only if the current user played in them.
+        const myName = profile?.name;
+        setMatches(list.filter((r) => !r.userId || r.userId === user?.id || appearedIn(r, myName)));
+      })
       .catch(() => {})
       .finally(() => on && setLoading(false));
     return () => {

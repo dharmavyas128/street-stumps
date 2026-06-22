@@ -3,7 +3,7 @@ import { Home as HomeIcon, Check, Save, Trash2, ArrowRight, Loader2, Trophy } fr
 import { useMatchEngine } from './hooks/useMatchEngine';
 import { useCompetition } from './hooks/useCompetition';
 import { useAuth } from './auth/AuthContext';
-import { makeTeams, teamById } from './competition';
+import { makeTeams, teamById, recordEditedFixture } from './competition';
 import {
   saveMatch,
   saveCompetition,
@@ -74,6 +74,7 @@ export default function App() {
   const [draft, setDraft] = useState({});
   const [resumeId, setResumeId] = useState(null); // in-progress DB row being played
   const [savingForLater, setSavingForLater] = useState(false);
+  const [savingFixtureEdit, setSavingFixtureEdit] = useState(false);
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState('profile');
   const [requestCount, setRequestCount] = useState(0);
@@ -236,6 +237,7 @@ export default function App() {
     if (!profile || isGuest || tourAutoLaunched.current) return;
     tourAutoLaunched.current = true;
     if (!localStorage.getItem('ss-tour-seen')) {
+      localStorage.setItem('ss-tour-seen', '1');
       const t = setTimeout(() => { setTourStep(0); setTourActive(true); }, 400);
       return () => clearTimeout(t);
     }
@@ -352,6 +354,21 @@ export default function App() {
   const finishFixture = () => {
     comp.recordFixture(summarize(engine.state));
     engine.reset();
+  };
+  // Owner edits a finished game from within a live/resumed competition. Recompute
+  // the fixture + standings/champion, replace the in-memory comp, and persist if
+  // this competition is already parked in Match History (has a resume id).
+  const editCompFixture = async (fixtureId, newState) => {
+    setSavingFixtureEdit(true);
+    try {
+      const newComp = recordEditedFixture(comp.comp, fixtureId, newState);
+      comp.load(newComp);
+      if (resumeId) {
+        await saveProgress({ id: resumeId, kind: newComp.kind, data: { comp: newComp } });
+      }
+    } finally {
+      setSavingFixtureEdit(false);
+    }
   };
   const saveComp = async () => {
     await saveCompetition(comp.comp);
@@ -519,6 +536,7 @@ export default function App() {
                 playersPerTeam={playersPerTeam}
                 initialPicks={draft.picks}
                 initialCaptains={draft.captains}
+                sharedPlayers={!!draft.sharedPlayers}
                 onBack={() => setStep('setup')}
                 onNext={handlePlayersNext}
               />
@@ -595,6 +613,7 @@ export default function App() {
                 playersPerTeam={playersPerTeam}
                 initialPicks={draft.picks}
                 initialCaptains={draft.captains}
+                sharedPlayers={!!draft.sharedPlayers}
                 onBack={() => setStep('setup')}
                 onNext={handlePlayersNext}
               />
@@ -664,6 +683,9 @@ export default function App() {
               <CompetitionHub
                 comp={comp.comp}
                 onPlayFixture={(id) => comp.beginFixture(id)}
+                onEndSeries={comp.endSeries}
+                onEditFixture={editCompFixture}
+                savingEdit={savingFixtureEdit}
                 footer={
                   comp.comp.done ? (
                     <div className="space-y-2">

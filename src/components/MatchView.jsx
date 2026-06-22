@@ -20,7 +20,13 @@ export default function MatchView({ engine, completeFooter, onSaveForLater, savi
     return (
       <div className="space-y-4">
         {onSaveForLater && <SaveForLaterBar onSave={onSaveForLater} saving={savingForLater} />}
-        <ScoreDisplay context={context} narrative={narrative} matchLabel={matchLabel} />
+        <ScoreDisplay
+          context={context}
+          narrative={narrative}
+          matchLabel={matchLabel}
+          onSwapStrike={engine.swapStrike}
+          onSetOpeners={engine.setOpeners}
+        />
         <BowlerPanel bowling={context.bowling} onSelectBowler={engine.selectBowler} />
         <ScoringControls
           onRuns={engine.scoreRuns}

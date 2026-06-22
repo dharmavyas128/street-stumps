@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, Trash2, Trophy, ChevronRight, Inbox, Swords, ScrollText, Play, Loader2 } from 'lucide-react';
+import { ChevronLeft, Trash2, Trophy, ChevronRight, Inbox, Swords, ScrollText, Play, Loader2, Pencil } from 'lucide-react';
 import { teamName, oversText } from '../engine/matchEngine';
-import { seriesStatus, teamById } from '../competition';
-import { loadMatches, deleteMatch } from '../storage';
+import { seriesStatus, teamById, recordEditedFixture } from '../competition';
+import { loadMatches, deleteMatch, updateMatch, updateCompetition } from '../storage';
 import MatchSummary from './MatchSummary';
+import EditScorecard from './EditScorecard';
 import CompetitionHub from './CompetitionHub';
 
 const isComp = (r) => r.kind === 'series' || r.kind === 'tournament';
@@ -18,6 +19,8 @@ export default function MatchHistory({ onBack, onResume }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     let on = true;
@@ -39,24 +42,77 @@ export default function MatchHistory({ onBack, onResume }) {
 
   const open = (record) => {
     if (record.status === 'in_progress') onResume?.(record);
-    else setSelected(record);
+    else { setSelected(record); setEditing(false); }
+  };
+
+  const saveEdit = async (newState) => {
+    setSavingEdit(true);
+    try {
+      await updateMatch(selected.id, newState);
+      const updated = { ...selected, state: newState };
+      setSelected(updated);
+      setMatches((ms) => ms.map((m) => (m.id === updated.id ? { ...m, state: newState } : m)));
+      setEditing(false);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const editFixture = async (fixtureId, newState) => {
+    setSavingEdit(true);
+    try {
+      const newComp = recordEditedFixture(selected.comp, fixtureId, newState);
+      await updateCompetition(selected.id, newComp);
+      const updated = { ...selected, comp: newComp };
+      setSelected(updated);
+      setMatches((ms) => ms.map((m) => (m.id === updated.id ? { ...m, comp: newComp } : m)));
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   if (selected) {
     if (isComp(selected)) {
-      return <CompetitionHub comp={selected.comp} readOnly onBack={() => setSelected(null)} />;
+      return (
+        <CompetitionHub
+          comp={selected.comp}
+          readOnly
+          onEditFixture={editFixture}
+          savingEdit={savingEdit}
+          onBack={() => setSelected(null)}
+        />
+      );
+    }
+    if (editing) {
+      return (
+        <EditScorecard
+          state={selected.state}
+          saving={savingEdit}
+          onSave={saveEdit}
+          onCancel={() => setEditing(false)}
+        />
+      );
     }
     return (
       <MatchSummary
         state={selected.state}
         footer={
-          <button
-            onClick={() => setSelected(null)}
-            className="btn-press flex w-full items-center justify-center gap-1 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
-          >
-            <ChevronLeft size={18} />
-            Back to History
-          </button>
+          <div className="grid grid-cols-[auto_1fr] gap-2">
+            <button
+              onClick={() => setEditing(true)}
+              className="btn-press flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 text-sm font-semibold text-slate-200 hover:border-neon/40 hover:text-neon"
+            >
+              <Pencil size={16} />
+              Edit
+            </button>
+            <button
+              onClick={() => setSelected(null)}
+              className="btn-press flex items-center justify-center gap-1 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+            >
+              <ChevronLeft size={18} />
+              Back to History
+            </button>
+          </div>
         }
       />
     );
@@ -178,7 +234,7 @@ function CompRow({ record, onOpen, onDelete }) {
   if (comp.kind === 'series') {
     const s = seriesStatus(comp);
     title = `${comp.teams[0].name} v ${comp.teams[1].name}`;
-    line2 = `Best of ${comp.bestOf} · ${s.aWins}–${s.bWins}`;
+    line2 = `${comp.fixtures.length}-game series · ${s.aWins}–${s.bWins}`;
   } else {
     title = `${comp.teams.length}-team tournament`;
     line2 = comp.teams.map((t) => t.name).join(', ');

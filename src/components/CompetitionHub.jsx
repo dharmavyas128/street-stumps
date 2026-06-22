@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Trophy, Play, ChevronLeft, ScrollText, Swords, BarChart3 } from 'lucide-react';
+import { Trophy, Play, ChevronLeft, ScrollText, Swords, BarChart3, Flag, X } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { seriesStatus, standings, nextFixture, teamById } from '../competition';
 import { competitionLeaderboard } from '../leaderboard';
 import MatchSummary from './MatchSummary';
+import EditScorecard from './EditScorecard';
 import LeaderboardTable from './LeaderboardTable';
 
 /**
@@ -11,22 +13,58 @@ import LeaderboardTable from './LeaderboardTable';
  * banner once it's done. `footer` carries Save/Delete when finished; `readOnly`
  * (history view) hides the play controls.
  */
-export default function CompetitionHub({ comp, onPlayFixture, footer, readOnly = false, onBack }) {
+export default function CompetitionHub({
+  comp,
+  onPlayFixture,
+  onEndSeries,
+  onEditFixture,
+  savingEdit = false,
+  footer,
+  readOnly = false,
+  onBack,
+}) {
   const [viewing, setViewing] = useState(null); // a played fixture to inspect
   const [tab, setTab] = useState('games'); // series only: 'games' | 'leaderboard'
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [editingFixture, setEditingFixture] = useState(false);
 
   if (viewing?.matchState) {
+    if (editingFixture && onEditFixture) {
+      return (
+        <EditScorecard
+          state={viewing.matchState}
+          saving={savingEdit}
+          onCancel={() => setEditingFixture(false)}
+          onSave={async (newState) => {
+            await onEditFixture(viewing.id, newState);
+            setEditingFixture(false);
+            setViewing(null);
+          }}
+        />
+      );
+    }
     return (
       <MatchSummary
         state={viewing.matchState}
         footer={
-          <button
-            onClick={() => setViewing(null)}
-            className="btn-press flex w-full items-center justify-center gap-1 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
-          >
-            <ChevronLeft size={18} />
-            Back
-          </button>
+          <div className={onEditFixture ? 'grid grid-cols-[auto_1fr] gap-2' : ''}>
+            {onEditFixture && (
+              <button
+                onClick={() => setEditingFixture(true)}
+                className="btn-press flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 text-sm font-semibold text-slate-200 hover:border-neon/40 hover:text-neon"
+              >
+                <Pencil size={16} />
+                Edit
+              </button>
+            )}
+            <button
+              onClick={() => setViewing(null)}
+              className="btn-press flex w-full items-center justify-center gap-1 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+            >
+              <ChevronLeft size={18} />
+              Back
+            </button>
+          </div>
         }
       />
     );
@@ -78,7 +116,7 @@ export default function CompetitionHub({ comp, onPlayFixture, footer, readOnly =
               <div className="mb-3 flex items-center gap-2 text-slate-200">
                 {isSeries ? <Swords size={18} className="text-neon" /> : <ScrollText size={18} className="text-neon" />}
                 <h2 className="text-sm font-semibold uppercase tracking-widest">
-                  {isSeries ? `Best of ${comp.bestOf}` : 'League Table'}
+                  {isSeries ? `${comp.bestOf}-Game Series` : 'League Table'}
                 </h2>
               </div>
 
@@ -116,6 +154,33 @@ export default function CompetitionHub({ comp, onPlayFixture, footer, readOnly =
               />
             ))}
           </div>
+
+          {/* End the series early — crown whoever's leading, count games played. */}
+          {isSeries &&
+            !comp.done &&
+            !readOnly &&
+            onEndSeries &&
+            sStatus.played > 0 &&
+            comp.fixtures.some((f) => !f.played) &&
+            (confirmEnd ? (
+              <EndSeriesConfirm
+                sStatus={sStatus}
+                teams={comp.teams}
+                onCancel={() => setConfirmEnd(false)}
+                onConfirm={() => {
+                  setConfirmEnd(false);
+                  onEndSeries();
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => setConfirmEnd(true)}
+                className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl border border-alert/40 bg-alert/10 py-3.5 text-sm font-semibold text-alert"
+              >
+                <Flag size={16} />
+                End series here
+              </button>
+            ))}
         </>
       )}
 
@@ -200,6 +265,44 @@ function StandingsTable({ rows }) {
           <span className="scoreboard w-6 text-right font-bold text-white">{r.Pts}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function EndSeriesConfirm({ sStatus, teams, onCancel, onConfirm }) {
+  const { aWins, bWins } = sStatus;
+  const tied = aWins === bWins;
+  const leader = aWins > bWins ? teams[0] : teams[1];
+  const outcome = tied
+    ? `It's level at ${aWins}–${bWins} — the series will be a draw.`
+    : `${leader.name} are leading ${Math.max(aWins, bWins)}–${Math.min(aWins, bWins)} and will be crowned series winner.`;
+
+  return (
+    <div className="glass-strong space-y-3 rounded-2xl border border-alert/30 p-4">
+      <div className="flex items-center gap-2 text-alert">
+        <Flag size={16} />
+        <p className="text-sm font-bold">End the series now?</p>
+      </div>
+      <p className="text-xs text-slate-300">{outcome}</p>
+      <p className="text-[11px] text-slate-500">
+        Remaining games are dropped. Games already played still count toward career stats.
+      </p>
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        <button
+          onClick={onCancel}
+          className="btn-press flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-3 text-sm font-semibold text-slate-300"
+        >
+          <X size={15} />
+          Keep playing
+        </button>
+        <button
+          onClick={onConfirm}
+          className="btn-press flex items-center justify-center gap-1.5 rounded-xl bg-alert py-3 text-sm font-bold text-midnight shadow-glow-amber"
+        >
+          <Flag size={15} />
+          End series
+        </button>
+      </div>
     </div>
   );
 }

@@ -102,6 +102,12 @@ export function useMatchEngine() {
     () => dispatch({ type: 'START_NEXT_INNINGS' }),
     []
   );
+  const swapStrike = useCallback(() => dispatch({ type: 'SWAP_STRIKE' }), []);
+  const setOpeners = useCallback(
+    (strikerId, nonStrikerId) =>
+      dispatch({ type: 'SET_OPENERS', payload: { strikerId, nonStrikerId } }),
+    []
+  );
   const undo = useCallback(() => dispatch({ type: 'UNDO' }), []);
   const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
   const loadState = useCallback((s) => dispatch({ type: 'LOAD_STATE', state: s }), []);
@@ -124,6 +130,8 @@ export function useMatchEngine() {
     takeWicket,
     selectBowler,
     startNextInnings,
+    swapStrike,
+    setOpeners,
     undo,
     reset,
     loadState,

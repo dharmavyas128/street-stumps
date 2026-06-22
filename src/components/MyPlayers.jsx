@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, Trash2, Users, Hand, Disc3, Loader2 } from 'lucide-react';
 import { loadPlayers, addPlayer, deletePlayer } from '../storage';
 import PlayerForm from './PlayerForm';
+import PlayerStatsSheet from './PlayerStatsSheet';
 
 /**
  * MyPlayers — manage a personal roster: add players (name, batting hand,
@@ -11,6 +12,7 @@ export default function MyPlayers({ onBack, onChange }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [viewPlayer, setViewPlayer] = useState(null); // { name, subtitle } | null
 
   useEffect(() => {
     let on = true;
@@ -90,23 +92,33 @@ export default function MyPlayers({ onBack, onChange }) {
               key={p.id}
               className="glass flex items-center gap-3 p-3.5"
             >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-neon/10 text-neon ring-1 ring-neon/20 text-sm font-bold">
-                {p.name.charAt(0).toUpperCase()}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-white">{p.name}</p>
-                <p className="flex items-center gap-2 text-[11px] text-slate-400">
-                  <span className="inline-flex items-center gap-1">
-                    <Hand size={11} />
-                    {p.battingHand === 'left' ? 'Left-hand bat' : 'Right-hand bat'}
-                  </span>
-                  <span className="text-slate-600">·</span>
-                  <span className="inline-flex items-center gap-1">
-                    <Disc3 size={11} />
-                    {p.bowlingStyle}
-                  </span>
-                </p>
-              </div>
+              <button
+                onClick={() =>
+                  setViewPlayer({
+                    name: p.name,
+                    subtitle: `${p.battingHand === 'left' ? 'Left-hand bat' : 'Right-hand bat'} · ${p.bowlingStyle}`,
+                  })
+                }
+                className="btn-press flex min-w-0 flex-1 items-center gap-3 text-left"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-neon/10 text-neon ring-1 ring-neon/20 text-sm font-bold">
+                  {p.name.charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-white">{p.name}</p>
+                  <p className="flex items-center gap-2 text-[11px] text-slate-400">
+                    <span className="inline-flex items-center gap-1">
+                      <Hand size={11} />
+                      {p.battingHand === 'left' ? 'Left-hand bat' : 'Right-hand bat'}
+                    </span>
+                    <span className="text-slate-600">·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Disc3 size={11} />
+                      {p.bowlingStyle}
+                    </span>
+                  </p>
+                </div>
+              </button>
               <button
                 onClick={() => remove(p.id)}
                 aria-label={`Remove ${p.name}`}
@@ -118,6 +130,13 @@ export default function MyPlayers({ onBack, onChange }) {
           ))}
         </div>
       )}
+
+      <PlayerStatsSheet
+        open={!!viewPlayer}
+        name={viewPlayer?.name}
+        subtitle={viewPlayer?.subtitle}
+        onClose={() => setViewPlayer(null)}
+      />
     </div>
   );
 }

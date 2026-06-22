@@ -29,9 +29,19 @@ export function saveMatch(state) {
   return insertGame({ kind: 'match', status: 'completed', data: { state } });
 }
 
+/** Overwrite a saved completed match (used by the owner's scorecard editor). */
+export function updateMatch(id, state) {
+  return updateGame(id, { kind: 'match', status: 'completed', data: { state } });
+}
+
 /** Save a completed series/tournament. */
 export function saveCompetition(comp) {
   return insertGame({ kind: comp.kind, status: 'completed', data: { comp } });
+}
+
+/** Overwrite a saved series/tournament (used by the owner's scorecard editor). */
+export function updateCompetition(id, comp) {
+  return updateGame(id, { kind: comp.kind, status: 'completed', data: { comp } });
 }
 
 /**

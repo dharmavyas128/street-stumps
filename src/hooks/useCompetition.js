@@ -1,5 +1,5 @@
 import { useReducer, useCallback } from 'react';
-import { createSeries, createTournament, recordResult } from '../competition';
+import { createSeries, createTournament, recordResult, endSeriesEarly } from '../competition';
 
 function reducer(comp, action) {
   switch (action.type) {
@@ -12,6 +12,8 @@ function reducer(comp, action) {
     }
     case 'RECORD':
       return recordResult(comp, action.summary);
+    case 'END_SERIES':
+      return endSeriesEarly(comp);
     case 'RESET':
       return null;
     default:
@@ -33,8 +35,9 @@ export function useCompetition() {
   );
   const beginFixture = useCallback((id) => dispatch({ type: 'BEGIN_FIXTURE', id }), []);
   const recordFixture = useCallback((summary) => dispatch({ type: 'RECORD', summary }), []);
+  const endSeries = useCallback(() => dispatch({ type: 'END_SERIES' }), []);
   const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
   const load = useCallback((saved) => dispatch({ type: 'INIT', comp: saved }), []);
 
-  return { comp, initSeries, initTournament, beginFixture, recordFixture, reset, load };
+  return { comp, initSeries, initTournament, beginFixture, recordFixture, endSeries, reset, load };
 }

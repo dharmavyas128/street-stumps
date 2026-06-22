@@ -586,6 +586,43 @@ export function computeResult(state) {
   };
 }
 
+/**
+ * Re-derive an innings' team total and wicket count from its (possibly hand-
+ * edited) batter lines + extras. The invariant the live engine maintains is:
+ *   inn.runs = Σ batter.runs + wides + noBalls + byes + legByes
+ *   inn.wickets = number of batters whose status is OUT
+ */
+function recomputeInnings(inn) {
+  if (!inn) return;
+  const batRuns = inn.batsmen.reduce((s, b) => s + (Number(b.runs) || 0), 0);
+  const e = inn.extras;
+  const extras =
+    (Number(e.wides) || 0) +
+    (Number(e.noBalls) || 0) +
+    (Number(e.byes) || 0) +
+    (Number(e.legByes) || 0);
+  inn.runs = batRuns + extras;
+  inn.wickets = inn.batsmen.filter((b) => b.status === BATSMAN_STATUS.OUT).length;
+}
+
+/**
+ * After an owner edits a finished scorecard, re-derive every dependent value so
+ * the saved state stays internally consistent: team totals, wickets, the chase
+ * target, and the final result. Returns a fresh state (input is not mutated).
+ */
+export function recomputeMatch(state) {
+  const next = structuredClone(state);
+  next.innings.forEach((inn) => recomputeInnings(inn));
+  const [first, second] = next.innings;
+  if (first && second) {
+    next.target = first.runs + 1;
+    next.result = computeResult(next);
+  } else if (first) {
+    next.result = null;
+  }
+  return next;
+}
+
 // ---------------------------------------------------------------------------
 // The reducer
 // ---------------------------------------------------------------------------
@@ -636,6 +673,51 @@ export function matchReducer(state, action) {
       next.innings[1] = makeInnings(state.config, prev.bowlingTeamId, prev.battingTeamId);
       next.inningsIndex = 1;
       next.status = 'live';
+      return next;
+    }
+
+    case 'SWAP_STRIKE': {
+      if (state.status !== 'live') return state;
+      const inn = currentInnings(state);
+      if (!inn || !inn.nonStrikerId) return state; // batting solo — nothing to swap
+      const next = structuredClone(state);
+      rotateStrike(currentInnings(next));
+      return next;
+    }
+
+    case 'SET_OPENERS': {
+      if (state.status !== 'live') return state;
+      const inn = currentInnings(state);
+      // Only before the innings' first delivery.
+      if (!inn || inn.legalBalls !== 0 || inn.timeline.length !== 0) return state;
+      const { strikerId, nonStrikerId } = action.payload;
+      const striker = getBatsman(inn, strikerId);
+      if (!striker) return state;
+      // Non-striker is optional (last-man / solo), but if given must differ.
+      if (nonStrikerId && (nonStrikerId === strikerId || !getBatsman(inn, nonStrikerId))) {
+        return state;
+      }
+      const next = structuredClone(state);
+      const ni = currentInnings(next);
+      // Reset everyone to "did not bat", then mark the chosen openers not-out.
+      ni.batsmen.forEach((b) => {
+        if (b.status === BATSMAN_STATUS.NOT_OUT) b.status = BATSMAN_STATUS.DID_NOT_BAT;
+      });
+      const s = getBatsman(ni, strikerId);
+      s.status = BATSMAN_STATUS.NOT_OUT;
+      ni.strikerId = strikerId;
+      if (nonStrikerId) {
+        const n = getBatsman(ni, nonStrikerId);
+        n.status = BATSMAN_STATUS.NOT_OUT;
+        ni.nonStrikerId = nonStrikerId;
+      } else {
+        ni.nonStrikerId = null;
+      }
+      // The next batter to walk in is the first did-not-bat after the openers.
+      const openerIdxs = ni.batsmen
+        .map((b, i) => (b.status === BATSMAN_STATUS.NOT_OUT ? i : -1))
+        .filter((i) => i >= 0);
+      ni.nextBatsmanIndex = openerIdxs.length ? Math.max(...openerIdxs) + 1 : ni.batsmen.length;
       return next;
     }
 
@@ -772,6 +854,13 @@ export function getMatchContext(state) {
         : null,
     striker: getBatsman(inn, inn.strikerId),
     nonStriker: inn.nonStrikerId ? getBatsman(inn, inn.nonStrikerId) : null,
+    // Last 10 deliveries (most recent last) for the scoreboard ball-by-ball strip.
+    recentBalls: inn.timeline.slice(-10),
+    // The full batting lineup, for the opening-pair picker at innings start.
+    lineup: inn.batsmen.map((b) => ({ id: b.id, name: b.name, isCaptain: b.isCaptain })),
+    atInningsStart: inn.legalBalls === 0 && inn.timeline.length === 0,
+    strikerId: inn.strikerId,
+    nonStrikerId: inn.nonStrikerId,
     // Batters eligible to walk in next (not yet batted, or retired & able to return)
     availableBatsmen: inn.batsmen
       .filter(

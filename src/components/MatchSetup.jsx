@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Swords, Users, Timer, UserMinus, Shield, Zap, ChevronRight } from 'lucide-react';
+import { Swords, Users, Timer, UserMinus, Shield, Zap, ChevronRight, Repeat2 } from 'lucide-react';
 
 /**
  * MatchSetup — Step 1 of the pre-match wizard: the "Rule Bender" form.
@@ -13,6 +13,7 @@ export default function MatchSetup({ initial, onNext, showSeriesLength = false, 
     totalOvers: 6,
     playersPerTeam: 6,
     lastManStanding: false,
+    sharedPlayers: false,
     retirementThreshold: 0, // 0 = off
     bestOf: 3,
     ...initial,
@@ -47,16 +48,19 @@ export default function MatchSetup({ initial, onNext, showSeriesLength = false, 
 
         {showSeriesLength && (
           <div className="mt-4">
-            <Label>Series length</Label>
-            <SegToggle
-              options={[
-                { value: 3, label: 'Best of 3' },
-                { value: 5, label: 'Best of 5' },
-                { value: 7, label: 'Best of 7' },
-              ]}
+            <Label icon={Swords}>Series length</Label>
+            <Stepper
+              icon={Swords}
+              label="Games to play"
               value={form.bestOf}
+              min={2}
+              max={15}
               onChange={(v) => set({ bestOf: v })}
             />
+            <p className="mt-1.5 px-1 text-[11px] text-slate-500">
+              Whoever wins the most games takes the series. You can end it early at any
+              time — the team in the lead wins.
+            </p>
           </div>
         )}
       </section>
@@ -104,6 +108,15 @@ export default function MatchSetup({ initial, onNext, showSeriesLength = false, 
             subtitle="Final batter can bat on solo"
             checked={form.lastManStanding}
             onChange={(v) => set({ lastManStanding: v })}
+          />
+        </div>
+        <div className="mt-3">
+          <ToggleRow
+            icon={Repeat2}
+            title="Shared Squad"
+            subtitle="Same players bat for both teams"
+            checked={form.sharedPlayers}
+            onChange={(v) => set({ sharedPlayers: v })}
           />
         </div>
       </section>

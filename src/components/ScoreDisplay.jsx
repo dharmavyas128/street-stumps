@@ -1,4 +1,4 @@
-import { Target, TrendingUp, Gauge, Radio, Crown, Trophy } from 'lucide-react';
+import { Target, TrendingUp, Gauge, Radio, Crown, Trophy, ArrowLeftRight } from 'lucide-react';
 import AnimatedNumber from './AnimatedNumber';
 
 const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2);
@@ -6,9 +6,9 @@ const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2);
 /**
  * ScoreDisplay — the digital stadium scoreboard.
  * Shows overs, runs/wickets, run rate, target & required rate (2nd innings),
- * a live batsmen tracker, and the punchy Match Context narrative.
+ * a recent-deliveries strip, a live batsmen tracker, and the Match Context.
  */
-export default function ScoreDisplay({ context, narrative, matchLabel }) {
+export default function ScoreDisplay({ context, narrative, matchLabel, onSwapStrike, onSetOpeners }) {
   if (!context) return null;
   const c = context;
   const isFinal = matchLabel === 'Final';
@@ -98,13 +98,51 @@ export default function ScoreDisplay({ context, narrative, matchLabel }) {
         )}
       </div>
 
+      {/* Recent deliveries strip — last 10 balls bowled */}
+      {c.recentBalls && c.recentBalls.length > 0 && (
+        <div className="card-utility p-3">
+          <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            This innings · last {c.recentBalls.length} ball{c.recentBalls.length === 1 ? '' : 's'}
+          </p>
+          <div className="flex items-center gap-1.5 overflow-x-auto scroll-slim">
+            {c.recentBalls.map((b, i) => {
+              const { label, tone } = ballToken(b);
+              return <BallChip key={i} label={label} tone={tone} />;
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Opening pair picker — only before the first ball of the innings */}
+      {c.atInningsStart && onSetOpeners && (
+        <OpenersPicker
+          lineup={c.lineup}
+          strikerId={c.strikerId}
+          nonStrikerId={c.nonStrikerId}
+          onSetOpeners={onSetOpeners}
+        />
+      )}
+
       {/* Batsmen tracker */}
       <div className="card-utility p-3">
-        <div className="mb-2 grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-          <span>Batter</span>
-          <span className="w-8 text-right">R</span>
-          <span className="w-8 text-right">B</span>
-          <span className="w-12 text-right">SR</span>
+        <div className="mb-2 flex items-center justify-between px-2">
+          <div className="grid flex-1 grid-cols-[1fr_auto_auto_auto] items-center gap-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            <span>Batter</span>
+            <span className="w-8 text-right">R</span>
+            <span className="w-8 text-right">B</span>
+            <span className="w-12 text-right">SR</span>
+          </div>
+          {c.nonStriker && onSwapStrike && (
+            <button
+              onClick={onSwapStrike}
+              title="Swap strike"
+              aria-label="Swap strike"
+              className="btn-press ml-3 flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-slate-300 transition hover:border-neon/40 hover:text-neon"
+            >
+              <ArrowLeftRight size={12} />
+              Swap
+            </button>
+          )}
         </div>
         <BatterRow batter={c.striker} onStrike />
         {c.nonStriker ? (
@@ -123,6 +161,93 @@ export default function ScoreDisplay({ context, narrative, matchLabel }) {
           className="mt-0.5 shrink-0 animate-pulse-glow text-neon"
         />
         <p className="text-sm leading-snug text-slate-200">{narrative}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Map a timeline delivery record to a compact chip label + colour tone. */
+function ballToken(b) {
+  switch (b.kind) {
+    case 'wicket':
+      return { label: 'W', tone: 'wicket' };
+    case 'wide':
+      return { label: b.runs > 1 ? `${b.runs}wd` : 'wd', tone: 'extra' };
+    case 'no_ball':
+      return { label: b.batRuns ? `${b.batRuns}nb` : 'nb', tone: 'extra' };
+    case 'bye':
+      return { label: `${b.runs}b`, tone: 'bye' };
+    case 'leg_bye':
+      return { label: `${b.runs}lb`, tone: 'bye' };
+    case 'run':
+    default:
+      if (b.runs === 0) return { label: '•', tone: 'dot' };
+      return { label: String(b.runs), tone: b.boundary ? 'boundary' : 'run' };
+  }
+}
+
+function BallChip({ label, tone }) {
+  const tones = {
+    boundary: 'bg-neon/20 text-neon ring-neon/40 font-bold',
+    run: 'bg-white/8 text-slate-100 ring-white/15',
+    dot: 'bg-white/5 text-slate-500 ring-white/10',
+    wicket: 'bg-crimson/20 text-crimson-soft ring-crimson/40 font-bold',
+    extra: 'bg-alert/15 text-alert ring-alert/30',
+    bye: 'bg-azure/15 text-azure ring-azure/30',
+  };
+  return (
+    <span
+      className={`scoreboard grid h-8 min-w-8 shrink-0 place-items-center rounded-lg px-1.5 text-xs ring-1 ${
+        tones[tone] || tones.run
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function OpenersPicker({ lineup, strikerId, nonStrikerId, onSetOpeners }) {
+  const solo = lineup.length < 2;
+  return (
+    <div className="card-utility p-3">
+      <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-neon">
+        Opening pair — pick who starts
+      </p>
+      <div className={`grid gap-2 ${solo ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        <label className="block">
+          <span className="mb-1 block px-1 text-[10px] uppercase tracking-wider text-slate-500">
+            On strike *
+          </span>
+          <select
+            value={strikerId || ''}
+            onChange={(e) => onSetOpeners(e.target.value, solo ? null : nonStrikerId)}
+            className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-2 text-sm text-slate-100 outline-none focus:border-neon/40"
+          >
+            {lineup.map((p) => (
+              <option key={p.id} value={p.id} disabled={p.id === nonStrikerId} className="bg-midnight">
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {!solo && (
+          <label className="block">
+            <span className="mb-1 block px-1 text-[10px] uppercase tracking-wider text-slate-500">
+              Non-striker
+            </span>
+            <select
+              value={nonStrikerId || ''}
+              onChange={(e) => onSetOpeners(strikerId, e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-2 text-sm text-slate-100 outline-none focus:border-neon/40"
+            >
+              {lineup.map((p) => (
+                <option key={p.id} value={p.id} disabled={p.id === strikerId} className="bg-midnight">
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
     </div>
   );

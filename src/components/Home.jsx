@@ -302,11 +302,11 @@ export default function Home({
         <ModeCard
           icon={ListOrdered}
           title="Series"
-          tag="Best of 3 / 5 / 7"
+          tag="Pick your length"
           variant="series"
           delay={190}
           tourId="mode-series"
-          description="Two sides. Multiple games. Hold your nerve and win the majority."
+          description="Two sides over as many games as you like. Win the majority — or call it early."
           onClick={isGuest ? lock : onPlaySeries}
           isLocked={isGuest}
         />

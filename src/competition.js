@@ -9,6 +9,8 @@
  * result summary is folded back in here to drive standings/progression.
  */
 
+import { recomputeMatch } from './engine/matchEngine';
+
 let _seq = 0;
 const fxId = () => `fx_${Date.now().toString(36)}_${_seq++}`;
 
@@ -169,6 +171,68 @@ export function recordResult(comp, summary) {
     } else {
       next.done = true;
       next.champion = table[0]?.id ?? null;
+    }
+  }
+  return next;
+}
+
+/**
+ * End a series before all games are played. We drop the unplayed fixtures and
+ * crown whoever is leading; a level score is a draw (no champion). The games
+ * already played keep their scorecards, so they still feed career stats.
+ */
+export function endSeriesEarly(comp) {
+  const next = structuredClone(comp);
+  next.fixtures = next.fixtures.filter((f) => f.played);
+  next.activeFixtureId = null;
+  next.done = true;
+  const s = seriesStatus(next);
+  next.champion =
+    s.aWins === s.bWins
+      ? null
+      : s.aWins > s.bWins
+        ? next.teams[0].id
+        : next.teams[1].id;
+  return next;
+}
+
+/**
+ * Re-apply an owner-edited scorecard to an already-played fixture. The match
+ * result is recomputed from the edited innings, the fixture's stored totals are
+ * refreshed, and the competition outcome is re-derived: a series re-crowns the
+ * leader (or declares a draw); a finished tournament re-reads its final.
+ * Tournament league standings are derived live, so the table updates on its own.
+ */
+export function recordEditedFixture(comp, fixtureId, newState) {
+  const next = structuredClone(comp);
+  const fx = next.fixtures.find((f) => f.id === fixtureId);
+  if (!fx) return next;
+
+  const recomputed = recomputeMatch(newState);
+  const a = recomputed.innings.find((i) => i && i.battingTeamId === 'A');
+  const b = recomputed.innings.find((i) => i && i.battingTeamId === 'B');
+  const winnerSide = recomputed.result?.winnerId ?? null;
+
+  fx.matchState = recomputed;
+  fx.home = { runs: a?.runs ?? 0, wkts: a?.wickets ?? 0 };
+  fx.away = { runs: b?.runs ?? 0, wkts: b?.wickets ?? 0 };
+  fx.result = {
+    winnerId: winnerSide === 'A' ? fx.homeId : winnerSide === 'B' ? fx.awayId : null,
+    text: recomputed.result?.text ?? '',
+  };
+
+  if (next.done) {
+    if (next.kind === 'series') {
+      const s = seriesStatus(next);
+      next.champion =
+        s.aWins === s.bWins
+          ? null
+          : s.aWins > s.bWins
+            ? next.teams[0].id
+            : next.teams[1].id;
+    } else {
+      const final = next.fixtures.find((f) => f.stage === 'final');
+      if (final?.played) next.champion = final.result?.winnerId ?? final.homeId;
     }
   }
   return next;

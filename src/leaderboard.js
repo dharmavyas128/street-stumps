@@ -61,6 +61,9 @@ function blank(name) {
     name,
     team: null,
     matches: 0,
+    won: 0,
+    lost: 0,
+    ties: 0,
     innings: 0,
     runs: 0,
     balls: 0,
@@ -137,6 +140,13 @@ function aggregateStates(entries, { byTeam = false } = {}) {
     const teamKey = (side) => teamMap?.[side]?.id || side;
     const keyFor = (side, name) => (byTeam ? `${teamKey(side)}|${name}` : name);
 
+    // Which match side(s) each player turned out for this game, so we can credit
+    // matches-played and a win/loss/tie exactly once from the final result.
+    const seenSides = {};
+    const noteSide = (key, side) => {
+      (seenSides[key] ||= new Set()).add(side);
+    };
+
     for (const inn of state.innings || []) {
       if (!inn) continue;
       const batSide = inn.battingTeamId;
@@ -144,7 +154,9 @@ function aggregateStates(entries, { byTeam = false } = {}) {
 
       for (const b of inn.batsmen || []) {
         if (b.balls === 0 && b.runs === 0 && b.status !== 'out') continue;
-        const p = ensure(keyFor(batSide, b.name), b.name, teamNameOf(batSide));
+        const key = keyFor(batSide, b.name);
+        const p = ensure(key, b.name, teamNameOf(batSide));
+        noteSide(key, batSide);
         p.innings += 1;
         p.runs += b.runs;
         p.balls += b.balls;
@@ -159,7 +171,9 @@ function aggregateStates(entries, { byTeam = false } = {}) {
         if (b.dismissal && b.dismissal.fielderId) {
           const fname = idName[b.dismissal.fielderId];
           if (fname) {
-            const f = ensure(keyFor(bowlSide, fname), fname, teamNameOf(bowlSide));
+            const fkey = keyFor(bowlSide, fname);
+            const f = ensure(fkey, fname, teamNameOf(bowlSide));
+            noteSide(fkey, bowlSide);
             if (b.dismissal.id === 'caught') f.catches += 1;
             else if (b.dismissal.id === 'run_out') f.runOuts += 1;
             else if (b.dismissal.id === 'stumped') f.stumpings += 1;
@@ -168,7 +182,9 @@ function aggregateStates(entries, { byTeam = false } = {}) {
       }
 
       for (const bw of inn.bowlers || []) {
-        const p = ensure(keyFor(bowlSide, bw.name), bw.name, teamNameOf(bowlSide));
+        const key = keyFor(bowlSide, bw.name);
+        const p = ensure(key, bw.name, teamNameOf(bowlSide));
+        noteSide(key, bowlSide);
         p.wickets += bw.wickets;
         p.runsConceded += bw.runs;
         p.ballsBowled += bw.balls;
@@ -189,6 +205,19 @@ function aggregateStates(entries, { byTeam = false } = {}) {
         if (d.kind === 'wide') bp.wides += 1;
         if (d.kind === 'no_ball') bp.noBalls += 1;
       }
+    }
+
+    // Tally one match per player who appeared, plus W/L/T from the result
+    // (result.winnerId is the winning SIDE 'A'/'B', or null for a tie).
+    const winnerSide = state.result?.winnerId ?? null;
+    for (const [key, sides] of Object.entries(seenSides)) {
+      const p = players[key];
+      if (!p) continue;
+      p.matches += 1;
+      if (!state.result) continue;
+      if (winnerSide && sides.has(winnerSide)) p.won += 1;
+      else if (winnerSide) p.lost += 1;
+      else p.ties += 1;
     }
   }
 

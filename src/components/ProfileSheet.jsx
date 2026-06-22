@@ -13,6 +13,8 @@ import {
   listPlayers,
 } from '../data/db';
 import PlayerForm from './PlayerForm';
+import PlayerStatsCard from './PlayerStatsCard';
+import PlayerStatsSheet from './PlayerStatsSheet';
 import DiceBearAvatar from './DiceBearAvatar';
 import {
   BG_OPTIONS, SKIN_OPTIONS, SHIRT_OPTIONS, HAIR_COLOR_OPTIONS,
@@ -24,16 +26,6 @@ const TABS = [
   { id: 'profile', label: 'Personal Info', icon: User },
   { id: 'friends', label: 'Friends',       icon: Users },
   { id: 'theme',   label: 'Theme',         icon: Palette },
-];
-
-const BADGES = [
-  { id: 'first_match',  label: 'First Match',     emoji: '🏏', check: (s) => s.innings >= 1 },
-  { id: 'half_century', label: 'Half-Century',     emoji: '⚡', check: (s) => s.hs >= 50 },
-  { id: 'centurion',    label: 'Centurion',        emoji: '💯', check: (s) => s.hs >= 100 },
-  { id: 'wicket_taker', label: 'Wicket Taker',     emoji: '🎳', check: (s) => s.wickets >= 1 },
-  { id: 'five_for',     label: 'Five-For',         emoji: '🔥', check: (s) => s.wickets >= 5 },
-  { id: 'six_machine',  label: 'Six Machine',      emoji: '💥', check: (s) => s.sixes >= 5 },
-  { id: 'veteran',      label: '10-Match Veteran', emoji: '🏆', check: (s) => s.innings >= 10 },
 ];
 
 export default function ProfileSheet({ open, onClose, initialTab = 'profile', onRequestsChange, refreshSignal = 0, onPlayersChanged, onStartTutorial }) {
@@ -55,6 +47,7 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
 
   // Stats
   const [myStats, setMyStats] = useState(null);
+  const [viewPlayer, setViewPlayer] = useState(null); // { name, subtitle, avatar } | null
 
   // Friends + requests
   const [friends, setFriends] = useState([]);
@@ -187,8 +180,6 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
   if (!open) return null;
 
   const initials = (profile?.name || user?.email || '?').charAt(0).toUpperCase();
-  const last5 = myStats?.last5 || [];
-  const achievements = BADGES.map((b) => ({ ...b, earned: myStats ? b.check(myStats) : false }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true">
@@ -500,85 +491,8 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
                 </div>
               )}
 
-              {/* Career Stats */}
-              <section>
-                <SectionLabel>Career Stats</SectionLabel>
-                {myStats ? (
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { label: 'Innings', value: myStats.innings, decimals: 0 },
-                      { label: 'Runs',    value: myStats.runs, decimals: 0 },
-                      { label: 'Wkts',    value: myStats.wickets, decimals: 0 },
-                      { label: 'Avg',     value: myStats.outs > 0 ? myStats.runs / myStats.outs : null, decimals: 1 },
-                    ].map(({ label, value, decimals }) => (
-                      <div key={label} className="glass rounded-xl p-3 text-center">
-                        <p className="scoreboard text-lg font-extrabold text-neon">
-                          <CountUp value={value} decimals={decimals} />
-                        </p>
-                        <p className="mt-0.5 text-[10px] text-slate-400">{label}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="glass rounded-2xl p-4 text-center text-xs text-slate-500">
-                    Play a match to see your stats here
-                  </div>
-                )}
-              </section>
-
-              {/* Recent Form */}
-              {last5.length > 0 && (
-                <section>
-                  <SectionLabel>Recent Form — last {last5.length} innings</SectionLabel>
-                  <div className="flex gap-2">
-                    {last5.map((runs, i) => {
-                      const colour =
-                        runs >= 50 ? 'bg-neon/15 text-neon ring-neon/30' :
-                        runs >= 20 ? 'bg-amber-300/10 text-amber-300 ring-amber-300/20' :
-                                     'bg-white/5 text-slate-400 ring-white/10';
-                      return (
-                        <div key={i} className={`scoreboard flex-1 rounded-xl py-2.5 text-center text-sm font-bold ring-1 ${colour}`}>
-                          {runs}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
-
-              {/* Best Performances */}
-              {myStats && (myStats.hs > 0 || myStats.wickets > 0) && (
-                <section>
-                  <SectionLabel>Best Performances</SectionLabel>
-                  <div className="glass divide-y divide-white/[0.06] rounded-2xl">
-                    {myStats.hs > 0       && <PerfRow label="Highest Score"  value={myStats.hs} />}
-                    {myStats.sr > 0       && <PerfRow label="Strike Rate"    value={myStats.sr.toFixed(1)} />}
-                    {myStats.wickets > 0  && <PerfRow label="Total Wickets"  value={myStats.wickets} />}
-                    {myStats.econ != null && <PerfRow label="Economy Rate"   value={myStats.econ.toFixed(2)} />}
-                    {myStats.sixes > 0    && <PerfRow label="Sixes Hit"      value={myStats.sixes} />}
-                  </div>
-                </section>
-              )}
-
-              {/* Achievements */}
-              <section>
-                <SectionLabel>Achievements</SectionLabel>
-                <div className="flex flex-wrap gap-2">
-                  {achievements.map((b) => (
-                    <div
-                      key={b.id}
-                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${
-                        b.earned
-                          ? 'bg-neon/15 text-neon ring-neon/30'
-                          : 'bg-white/[0.03] text-slate-600 ring-white/[0.08]'
-                      }`}
-                    >
-                      <span className={b.earned ? '' : 'opacity-30'}>{b.emoji}</span>
-                      {b.label}
-                    </div>
-                  ))}
-                </div>
-              </section>
+              {/* Career stats, recent form, best performances & achievements */}
+              <PlayerStatsCard stats={myStats} emptyMessage="Play a match to see your stats here" />
 
               {/* Tutorial */}
               <button
@@ -734,21 +648,32 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
                     const busy = addingPlayer === f.friend_id;
                     return (
                       <div key={f.friend_id} className="glass flex items-center gap-2.5 rounded-xl px-3 py-2.5">
-                        {parseConfig(f.avatar) ? (
-                          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl ring-1 ring-neon/20">
-                            <DiceBearAvatar config={f.avatar} size={36} className="h-full w-full" />
+                        <button
+                          onClick={() =>
+                            setViewPlayer({
+                              name: f.name,
+                              subtitle: `${f.batting_hand === 'left' ? 'LHB' : 'RHB'} · ${f.bowling_style}`,
+                              avatar: f.avatar,
+                            })
+                          }
+                          className="btn-press flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                        >
+                          {parseConfig(f.avatar) ? (
+                            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl ring-1 ring-neon/20">
+                              <DiceBearAvatar config={f.avatar} size={36} className="h-full w-full" />
+                            </div>
+                          ) : (
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/10 text-sm font-bold text-neon ring-1 ring-neon/20">
+                              {(f.name || '?').charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-slate-100">{f.name}</p>
+                            <p className="text-[11px] text-slate-500">
+                              {f.batting_hand === 'left' ? 'LHB' : 'RHB'} · {f.bowling_style}
+                            </p>
                           </div>
-                        ) : (
-                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neon/10 text-sm font-bold text-neon ring-1 ring-neon/20">
-                            {(f.name || '?').charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-slate-100">{f.name}</p>
-                          <p className="text-[11px] text-slate-500">
-                            {f.batting_hand === 'left' ? 'LHB' : 'RHB'} · {f.bowling_style}
-                          </p>
-                        </div>
+                        </button>
                         {added ? (
                           <span className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-slate-400">
                             <UserCheck size={13} /> Player
@@ -855,6 +780,15 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
 
         </div>
       </div>
+
+      {/* Tap a friend to see their career record */}
+      <PlayerStatsSheet
+        open={!!viewPlayer}
+        name={viewPlayer?.name}
+        subtitle={viewPlayer?.subtitle}
+        avatar={viewPlayer?.avatar}
+        onClose={() => setViewPlayer(null)}
+      />
     </div>
   );
 }
@@ -867,36 +801,3 @@ function SectionLabel({ children }) {
   );
 }
 
-function PerfRow({ label, value }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3 text-sm">
-      <span className="text-slate-400">{label}</span>
-      <span className="scoreboard font-bold text-neon">{value}</span>
-    </div>
-  );
-}
-
-/* Animates a number from 0 → value on mount (sheet open / stats load). */
-function CountUp({ value, decimals = 0, fallback = '—' }) {
-  const target = typeof value === 'number' ? value : NaN;
-  const finite = Number.isFinite(target);
-  const [display, setDisplay] = useState(0);
-
-  useEffect(() => {
-    if (!finite) return;
-    let raf;
-    const start = performance.now();
-    const dur = 650;
-    const tick = (now) => {
-      const p = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
-      setDisplay(target * eased);
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, finite]);
-
-  if (!finite) return <>{fallback}</>;
-  return <>{display.toFixed(decimals)}</>;
-}

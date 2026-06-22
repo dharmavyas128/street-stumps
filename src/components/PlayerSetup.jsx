@@ -16,6 +16,7 @@ export default function PlayerSetup({
   playersPerTeam,
   initialPicks,
   initialCaptains,
+  sharedPlayers = false,
   onBack,
   onNext,
 }) {
@@ -42,8 +43,24 @@ export default function PlayerSetup({
     };
   }, []);
 
+  // Which roster players are unavailable in the picker for the slot being edited.
   const takenIds = new Set();
-  ['A', 'B'].forEach((t) => picks[t].forEach((p) => p?.id && takenIds.add(p.id)));
+  if (!sharedPlayers) {
+    // Normal mode: a player can't appear on either team more than once.
+    ['A', 'B'].forEach((t) => picks[t].forEach((p) => p?.id && takenIds.add(p.id)));
+  } else if (editing) {
+    // Shared Squad: still no duplicates within a team, but exactly ONE player
+    // may be shared across both teams. Once a shared player exists, block every
+    // player from the other team so a second crossover can't be added.
+    const me = editing.team;
+    const other = me === 'A' ? 'B' : 'A';
+    picks[me].forEach((p, i) => { if (p?.id && i !== editing.idx) takenIds.add(p.id); });
+    const otherIds = picks[other].map((p) => p?.id).filter(Boolean);
+    const sharedAlready = picks[me].some(
+      (p, i) => i !== editing.idx && p?.id && otherIds.includes(p.id)
+    );
+    if (sharedAlready) otherIds.forEach((id) => takenIds.add(id));
+  }
 
   const setPick = (team, idx, player) =>
     setPicks((p) => {

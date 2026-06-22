@@ -275,7 +275,8 @@ export async function careerStatsByFormat(loadFn) {
  * show real data (even if sparse), so a new format reads true.
  */
 export async function getLeaderboard(format = 'all') {
-  const real = await careerStats(format);
+  const states = byFormat(await collectStates(loadOwnAndFriendsGames), format);
+  const real = aggregateStates(states);
   if (format === 'all' && real.length < REAL_THRESHOLD) {
     return { players: DEMO_PLAYERS.map(derive), isDemo: true };
   }

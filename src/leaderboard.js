@@ -8,7 +8,7 @@
  * demo set so the leaderboard is never empty.
  */
 import { loadMatches } from './storage';
-import { listFriendGames } from './data/db';
+import { listFriendGames, listFriends } from './data/db';
 
 const REAL_THRESHOLD = 5; // need at least this many real players to skip demo
 
@@ -240,6 +240,20 @@ export async function careerStats(format = 'all') {
 /** Career stats for a friend — derived from their own saved games. */
 export async function friendCareerStats(userId, format = 'all') {
   return aggregateStates(byFormat(await collectStates(() => listFriendGames(userId)), format));
+}
+
+/**
+ * loadFn that combines the current user's own games with every accepted
+ * friend's saved games. Used so a player's profile shows stats from all
+ * games they appeared in — regardless of who did the scoring.
+ */
+export async function loadOwnAndFriendsGames() {
+  const own = await loadMatches();
+  let friends = [];
+  try { friends = await listFriends(); } catch { /* Supabase not configured or offline */ }
+  if (!friends.length) return own;
+  const friendResults = await Promise.all(friends.map((f) => listFriendGames(f.friend_id).catch(() => [])));
+  return [...own, ...friendResults.flat()];
 }
 
 /**

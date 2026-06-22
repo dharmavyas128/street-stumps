@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Edit2, Check, LogOut, UserPlus, Hand, Disc3, Search, Trash2, User, Users, Palette, Moon, Sun, Clock, UserCheck, Loader2, Sparkles, Mail, Shuffle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { careerStatsByFormat } from '../leaderboard';
+import { careerStatsByFormat, loadOwnAndFriendsGames } from '../leaderboard';
 import {
   findUserByEmail,
   listFriends,
@@ -67,7 +67,7 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
 
   useEffect(() => {
     if (!open) { setEditing(false); return; }
-    careerStatsByFormat()
+    careerStatsByFormat(loadOwnAndFriendsGames)
       .then((sets) => {
         const pick = (arr) => arr.find((p) => p.name === profile?.name) || null;
         setMyStats({ all: pick(sets.all), limited: pick(sets.limited), test: pick(sets.test) });

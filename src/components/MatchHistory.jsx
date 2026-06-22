@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, Trash2, Trophy, ChevronRight, Inbox, Swords, ScrollText, Play, Loader2, Pencil } from 'lucide-react';
 import { teamName, oversText } from '../engine/matchEngine';
 import { seriesStatus, teamById, recordEditedFixture } from '../competition';
-import { loadMatches, deleteMatch, updateMatch, updateCompetition } from '../storage';
+import { deleteMatch, updateMatch, updateCompetition } from '../storage';
+import { loadOwnAndFriendsGames } from '../leaderboard';
+import { useAuth } from '../auth/AuthContext';
 import MatchSummary from './MatchSummary';
 import EditScorecard from './EditScorecard';
 import CompetitionHub from './CompetitionHub';
@@ -10,21 +12,23 @@ import CompetitionHub from './CompetitionHub';
 const isComp = (r) => r.kind === 'series' || r.kind === 'tournament';
 
 /**
- * MatchHistory — browse saved games (Quick matches and competitions). Completed
- * games open to a full scorecard / standings; in-progress games show a Resume
- * button that hands back to App to reload the engine. Everything is per-account
- * and cloud-synced.
+ * MatchHistory — browse saved games (Quick matches and competitions). Shows own
+ * games plus accepted friends' saved games so every participant can review
+ * scorecards. Only the owner can delete, edit, or resume a game.
  */
 export default function MatchHistory({ onBack, onResume }) {
+  const { user } = useAuth();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const isOwner = (record) => !record.userId || record.userId === user?.id;
+
   useEffect(() => {
     let on = true;
-    loadMatches()
+    loadOwnAndFriendsGames()
       .then((list) => on && setMatches(list))
       .catch(() => {})
       .finally(() => on && setLoading(false));
@@ -41,8 +45,8 @@ export default function MatchHistory({ onBack, onResume }) {
   };
 
   const open = (record) => {
-    if (record.status === 'in_progress') onResume?.(record);
-    else { setSelected(record); setEditing(false); }
+    if (record.status === 'in_progress' && isOwner(record)) onResume?.(record);
+    else if (record.status !== 'in_progress') { setSelected(record); setEditing(false); }
   };
 
   const saveEdit = async (newState) => {
@@ -97,14 +101,16 @@ export default function MatchHistory({ onBack, onResume }) {
       <MatchSummary
         state={selected.state}
         footer={
-          <div className="grid grid-cols-[auto_1fr] gap-2">
-            <button
-              onClick={() => setEditing(true)}
-              className="btn-press flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 text-sm font-semibold text-slate-200 hover:border-neon/40 hover:text-neon"
-            >
-              <Pencil size={16} />
-              Edit
-            </button>
+          <div className={`grid gap-2 ${isOwner(selected) ? 'grid-cols-[auto_1fr]' : 'grid-cols-1'}`}>
+            {isOwner(selected) && (
+              <button
+                onClick={() => setEditing(true)}
+                className="btn-press flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 text-sm font-semibold text-slate-200 hover:border-neon/40 hover:text-neon"
+              >
+                <Pencil size={16} />
+                Edit
+              </button>
+            )}
             <button
               onClick={() => setSelected(null)}
               className="btn-press flex items-center justify-center gap-1 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
@@ -145,9 +151,9 @@ export default function MatchHistory({ onBack, onResume }) {
         <div className="space-y-3">
           {matches.map((m) =>
             isComp(m) ? (
-              <CompRow key={m.id} record={m} onOpen={() => open(m)} onDelete={(e) => remove(m.id, e)} />
+              <CompRow key={m.id} record={m} onOpen={() => open(m)} onDelete={(e) => remove(m.id, e)} isOwner={isOwner(m)} />
             ) : (
-              <MatchRow key={m.id} record={m} onOpen={() => open(m)} onDelete={(e) => remove(m.id, e)} />
+              <MatchRow key={m.id} record={m} onOpen={() => open(m)} onDelete={(e) => remove(m.id, e)} isOwner={isOwner(m)} />
             )
           )}
         </div>
@@ -159,7 +165,7 @@ export default function MatchHistory({ onBack, onResume }) {
 const dateOf = (iso) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
-function Shell({ icon: Icon, tint, title, date, line1, line2, inProgress, onOpen, onDelete }) {
+function Shell({ icon: Icon, tint, title, date, line1, line2, inProgress, isOwner, onOpen, onDelete }) {
   return (
     <button
       onClick={onOpen}
@@ -184,14 +190,16 @@ function Shell({ icon: Icon, tint, title, date, line1, line2, inProgress, onOpen
         {line2 && <span className="scoreboard mt-0.5 block truncate text-[11px] text-slate-400">{line2}</span>}
       </span>
       <span className="flex shrink-0 items-center gap-1">
-        <span
-          role="button"
-          onClick={onDelete}
-          className="btn-press grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-400 hover:text-crimson"
-        >
-          <Trash2 size={15} />
-        </span>
-        {inProgress ? (
+        {isOwner && (
+          <span
+            role="button"
+            onClick={onDelete}
+            className="btn-press grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-400 hover:text-crimson"
+          >
+            <Trash2 size={15} />
+          </span>
+        )}
+        {inProgress && isOwner ? (
           <span className="flex items-center gap-1 rounded-lg bg-neon px-2.5 py-1.5 text-[11px] font-bold text-midnight">
             <Play size={12} className="fill-midnight" strokeWidth={2.5} />
             Resume
@@ -204,7 +212,7 @@ function Shell({ icon: Icon, tint, title, date, line1, line2, inProgress, onOpen
   );
 }
 
-function MatchRow({ record, onOpen, onDelete }) {
+function MatchRow({ record, onOpen, onDelete, isOwner }) {
   const { state, savedAt, status } = record;
   const inProgress = status === 'in_progress';
   const lineFor = (inn) =>
@@ -219,13 +227,14 @@ function MatchRow({ record, onOpen, onDelete }) {
       line1={state.result?.text || 'Result'}
       line2={`${lineFor(a)}${b ? ` · ${lineFor(b)}` : ''}`}
       inProgress={inProgress}
+      isOwner={isOwner}
       onOpen={onOpen}
       onDelete={onDelete}
     />
   );
 }
 
-function CompRow({ record, onOpen, onDelete }) {
+function CompRow({ record, onOpen, onDelete, isOwner }) {
   const { comp, savedAt, status } = record;
   const inProgress = status === 'in_progress';
   const champ = comp.champion ? teamById(comp, comp.champion) : null;
@@ -248,6 +257,7 @@ function CompRow({ record, onOpen, onDelete }) {
       line1={champ ? `🏆 ${champ.name}` : comp.kind === 'series' ? 'Series' : 'Tournament'}
       line2={line2}
       inProgress={inProgress}
+      isOwner={isOwner}
       onOpen={onOpen}
       onDelete={onDelete}
     />

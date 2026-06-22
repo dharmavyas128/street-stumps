@@ -6,7 +6,7 @@ const COLUMNS = [
   { key: 'points', label: 'Pts', fmt: (v) => Math.round(v) },
   { key: 'runs', label: 'Runs', fmt: (v) => v },
   { key: 'hs', label: 'HS', fmt: (v) => v },
-  { key: 'ave', label: 'Ave', fmt: (v) => (v ? v.toFixed(1) : '0.0') },
+  { key: 'ave', label: 'Ave', fmt: (v) => (v == null ? '—' : v.toFixed(1)) },
   { key: 'wickets', label: 'Wkts', fmt: (v) => v },
   { key: 'econ', label: 'Econ', fmt: (v) => (v == null ? '—' : v.toFixed(1)) },
   { key: 'bave', label: 'B-Ave', fmt: (v) => (v == null ? '—' : v.toFixed(1)) },

@@ -89,12 +89,18 @@ function blank(name) {
 }
 
 function derive(p) {
-  const ave = p.outs > 0 ? p.runs / p.outs : p.runs;
+  // null = never dismissed (infinite average in cricket)
+  const ave = p.outs > 0 ? p.runs / p.outs : null;
   const sr = p.balls > 0 ? (p.runs / p.balls) * 100 : 0;
   const econ = p.ballsBowled > 0 ? p.runsConceded / (p.ballsBowled / 6) : null;
   const bave = p.wickets > 0 ? p.runsConceded / p.wickets : null;
-  const last5 = (p.last5 ?? p.scores.slice(-5).map((s) => s.runs)) || [];
-  return { ...p, ave, sr, econ, bave, last5, points: totalPoints(p) };
+  // Demo data supplies last5 as plain numbers; real scores carry { runs, notOut }.
+  const rawLast5 = p.last5
+    ? p.last5.map((r) => ({ runs: r, notOut: false }))
+    : p.scores.slice(-5);
+  const last5 = rawLast5.map((s) => s.runs);
+  const last5NotOuts = rawLast5.map((s) => s.notOut ?? false);
+  return { ...p, ave, sr, econ, bave, last5, last5NotOuts, points: totalPoints(p) };
 }
 
 /** A saved match state's format, defaulting to limited-overs. */
@@ -176,7 +182,7 @@ function aggregateStates(entries, { byTeam = false } = {}) {
           p.outs += 1;
           if (b.runs === 0) p.ducks += 1;
         }
-        p.scores.push({ at, runs: b.runs });
+        p.scores.push({ at, runs: b.runs, notOut: b.status !== 'out' });
         if (b.dismissal && b.dismissal.fielderId) {
           const fname = idName[b.dismissal.fielderId];
           if (fname) {

@@ -105,13 +105,14 @@ function PlayerStatsBody({ stats }) {
           <SectionLabel>Recent Form — last {last5.length} innings</SectionLabel>
           <div className="flex gap-2">
             {last5.map((runs, i) => {
+              const notOut = stats.last5NotOuts?.[i] ?? false;
               const colour =
                 runs >= 50 ? 'bg-neon/15 text-neon ring-neon/30' :
                 runs >= 20 ? 'bg-amber-300/10 text-amber-300 ring-amber-300/20' :
                              'bg-white/5 text-slate-400 ring-white/10';
               return (
                 <div key={i} className={`scoreboard flex-1 rounded-xl py-2.5 text-center text-sm font-bold ring-1 ${colour}`}>
-                  {runs}
+                  {runs}{notOut ? '*' : ''}
                 </div>
               );
             })}

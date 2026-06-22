@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { careerStatsByFormat } from '../leaderboard';
-import { listFriendGames } from '../data/db';
 import DiceBearAvatar from './DiceBearAvatar';
 import { parseConfig } from '../avatars';
 import PlayerStatsCard from './PlayerStatsCard';
 
 /**
  * PlayerStatsSheet — a bottom-sheet that shows one player's career record, with
- * a Limited / Test format toggle. Pass `userId` to load stats from that user's
- * own games (for friends); omit it to derive from this account's games.
+ * a Limited / Test format toggle. Stats are derived from the current user's own
+ * saved games (where this player appeared as a participant).
  */
-export default function PlayerStatsSheet({ open, name, subtitle, avatar, userId, onClose }) {
+export default function PlayerStatsSheet({ open, name, subtitle, avatar, onClose }) {
   const [byFormat, setByFormat] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +19,7 @@ export default function PlayerStatsSheet({ open, name, subtitle, avatar, userId,
     let on = true;
     setLoading(true);
     setByFormat(null);
-    careerStatsByFormat(userId ? () => listFriendGames(userId) : undefined)
+    careerStatsByFormat()
       .then((sets) => {
         if (!on) return;
         const pick = (arr) => arr.find((p) => p.name === name) || null;
@@ -31,7 +30,7 @@ export default function PlayerStatsSheet({ open, name, subtitle, avatar, userId,
     return () => {
       on = false;
     };
-  }, [open, name, userId]);
+  }, [open, name]);
 
   if (!open) return null;
 

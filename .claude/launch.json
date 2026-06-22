@@ -2,9 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "cyber-field",
+      "name": "street-stumps",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
+      "autoPort": true,
       "port": 5173
     }
   ]

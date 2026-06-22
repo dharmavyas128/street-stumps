@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, Bookmark, Loader2, Flag, Hourglass, Handshake, Repeat2, Layers } from 'lucide-react';
+import { ChevronRight, Bookmark, Loader2, Flag, Hourglass, Handshake, Repeat2, Layers, Trophy, Crown } from 'lucide-react';
 import { oversText, teamName, maxWickets, currentInnings, inningsScore, followOnAvailable } from '../engine/matchEngine';
 import AnimatedNumber from './AnimatedNumber';
 import ScoreDisplay from './ScoreDisplay';
@@ -17,12 +17,16 @@ import MatchSummary from './MatchSummary';
 export default function MatchView({ engine, completeFooter, onSaveForLater, savingForLater, matchLabel }) {
   const { state, status, context, narrative } = engine;
   const isTest = state.config?.format === 'test';
+  const isPairs = !!state.config?.pairs; // Pairs OR Single (both unit formats)
 
   if (status === 'live') {
     return (
       <div className="space-y-4">
         {onSaveForLater && <SaveForLaterBar onSave={onSaveForLater} saving={savingForLater} />}
-        {isTest && context.test && (
+        {isPairs && context.pairs && (
+          <PairsStatusBar context={context} onDeclare={engine.declare} />
+        )}
+        {!isPairs && isTest && context.test && (
           <TestStatusBar
             context={context}
             onDeclare={engine.declare}
@@ -56,6 +60,18 @@ export default function MatchView({ engine, completeFooter, onSaveForLater, savi
   }
 
   if (status === 'innings-break') {
+    if (isPairs) {
+      return (
+        <PairsInningsBreak
+          state={state}
+          context={context}
+          narrative={narrative}
+          onContinue={engine.startNextInnings}
+          onSaveForLater={onSaveForLater}
+          savingForLater={savingForLater}
+        />
+      );
+    }
     return isTest ? (
       <TestInningsBreak
         state={state}
@@ -187,6 +203,168 @@ function TestStatusBar({ context, onDeclare, onDraw }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * PairsStatusBar — the running Pairs situation: which pair is in, where they
+ * stand against the leader so far, and a Declare control (a pair may close
+ * their innings at any point once they've faced a ball).
+ */
+function PairsStatusBar({ context, onDeclare }) {
+  const p = context.pairs;
+  const [confirm, setConfirm] = useState(false);
+  const unit = p.scoring === 'survival' ? 'pts' : 'runs';
+  const single = p.mode === 'single';
+  const noun = single ? 'Player' : 'Pair';
+
+  // Best score among pairs that have already finished batting.
+  const leader = p.standings.find((s) => s.pairId !== context.battingTeamId) || null;
+  const me = p.score;
+
+  let situation;
+  if (!leader) {
+    situation = 'First to bat — set a total for the rest to chase down.';
+  } else if (me > leader.score) {
+    const by = me - leader.score;
+    situation = `Topping the table by ${by} ${unit}.`;
+  } else {
+    const need = leader.score - me + 1;
+    situation = `Need ${need} more to top ${leader.name}'s ${leader.score}.`;
+  }
+
+  return (
+    <div className="card-utility space-y-3 p-4">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-slate-400">
+          <Layers size={13} />
+          {noun} {p.pairNumber} of {p.totalPairs}
+        </span>
+        {p.scoring === 'survival' && (
+          <span className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-200">
+            <Hourglass size={10} /> Survival · {p.points} pts
+          </span>
+        )}
+      </div>
+
+      <p className="text-sm font-semibold text-slate-200">{situation}</p>
+
+      {p.canDeclare && (
+        <button
+          onClick={() => setConfirm(true)}
+          className="btn-press flex w-full items-center justify-center gap-1.5 rounded-xl border border-alert/40 bg-alert/10 py-2.5 text-sm font-bold text-alert"
+        >
+          <Flag size={15} /> Declare
+        </button>
+      )}
+
+      {confirm && (
+        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center animate-pop-in">
+          <p className="text-sm font-semibold text-white">
+            {single ? 'Declare your innings closed?' : "Declare this pair's innings closed?"}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {single
+              ? 'You stop batting here and the next player comes in.'
+              : 'They stop batting here and the next pair comes in.'}
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setConfirm(false)}
+              className="btn-press rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-slate-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { onDeclare(); setConfirm(false); }}
+              className="btn-press rounded-xl bg-alert py-2.5 text-sm font-bold text-midnight"
+            >
+              Declare
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A live standings table for Pairs — highest score first, leader crowned. */
+function PairsStandings({ standings, scoring }) {
+  const unit = scoring === 'survival' ? 'pts' : 'runs';
+  return (
+    <div className="card-utility overflow-hidden p-0">
+      <p className="flex items-center gap-1.5 border-b border-white/[0.06] px-4 py-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
+        <Trophy size={13} className="text-neon" /> Standings
+      </p>
+      <div className="divide-y divide-white/[0.06]">
+        {standings.map((s, i) => (
+          <div key={s.pairId} className="flex items-center gap-3 px-4 py-3">
+            <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg text-xs font-extrabold ${
+              i === 0 ? 'bg-neon/15 text-neon ring-1 ring-neon/30' : 'bg-white/5 text-slate-400'
+            }`}>
+              {i + 1}
+            </span>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm font-semibold text-slate-100">
+              {i === 0 && <Crown size={13} className="shrink-0 text-neon" />}
+              {s.name}
+            </span>
+            <span className="scoreboard shrink-0 text-sm font-bold text-white">
+              {s.score}
+              <span className="ml-1 text-[10px] font-medium text-slate-500">{unit}</span>
+            </span>
+            <span className="shrink-0 text-[10px] text-slate-500">
+              {s.out ? `${s.wickets} wkt${s.wickets === 1 ? '' : 's'}` : 'batting'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Pairs innings break — closed pair's score, live standings, next-pair button. */
+function PairsInningsBreak({ state, context, narrative, onContinue, onSaveForLater, savingForLater }) {
+  const inn = currentInnings(state);
+  const battedName = teamName(state, inn.battingTeamId);
+  const score = inningsScore(inn, state.config);
+  const survival = state.config.scoring === 'survival';
+  const declared = inn.declared;
+  const single = state.config.testMode === 'single';
+  const doneLabel = single ? 'Player Done' : 'Pair Done';
+  const nextLabel = single ? 'Next player in' : 'Next pair in';
+
+  return (
+    <div className="space-y-4 animate-pop-in">
+      {onSaveForLater && <SaveForLaterBar onSave={onSaveForLater} saving={savingForLater} />}
+      <div className="card-hero glass-box relative overflow-hidden p-6 text-center">
+        <div className="pointer-events-none absolute inset-x-0 -top-16 h-40 bg-neon/10 blur-3xl" />
+        <p className="relative text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+          {doneLabel}{declared ? ' · Declared' : ''}
+        </p>
+        <h2 className="relative mt-2 text-lg font-bold text-white">{battedName}</h2>
+        <p className="relative mt-1 flex items-baseline justify-center gap-1">
+          <span className="scoreboard text-5xl font-extrabold text-white text-glow-green">
+            <AnimatedNumber value={score} />
+          </span>
+          <span className="scoreboard text-2xl font-bold text-slate-400">/{inn.wickets}</span>
+        </p>
+        <p className="scoreboard relative mt-1 text-sm text-slate-400">
+          {survival ? `${inn.runs} runs · ` : ''}{oversText(inn.legalBalls)} overs{survival ? ` · ${score} pts` : ''}
+        </p>
+      </div>
+
+      <PairsStandings standings={context.pairs.standings} scoring={state.config.scoring} />
+
+      <div className="card-utility p-4 text-center text-sm text-slate-300">{narrative}</div>
+
+      <button
+        onClick={onContinue}
+        className="btn-press sheenable flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green ring-1 ring-neon-soft/40"
+      >
+        {nextLabel}
+        <ChevronRight size={20} strokeWidth={2.5} />
+      </button>
     </div>
   );
 }

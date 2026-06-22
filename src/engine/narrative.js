@@ -288,7 +288,28 @@ function testSituation(state, ctx) {
   return `${ctx.battingTeamName} ${ctx.runs}/${ctx.wickets} — innings ${t.inningsNumber} of ${t.totalInnings}, ${leadTxt}.`;
 }
 
+function pairsSituation(state, ctx) {
+  const p = ctx.pairs;
+  const single = p.mode === 'single';
+  const unit = p.scoring === 'survival' ? ' pts' : '';
+  const leader = p.standings.find((s) => s.pairId !== ctx.battingTeamId);
+  if (ctx.legalBalls === 0) {
+    return single
+      ? `${ctx.battingTeamName} is in — player ${p.pairNumber} of ${p.totalPairs}. Bat until you're out, everyone else can bowl.`
+      : `${ctx.battingTeamName} stride out — pair ${p.pairNumber} of ${p.totalPairs}. Bat until both are out, anyone else can bowl.`;
+  }
+  if (!leader) {
+    return `${ctx.battingTeamName} ${ctx.runs}/${ctx.wickets} — setting the first total for the rest to chase.`;
+  }
+  const me = p.score;
+  if (me > leader.score) {
+    return `${ctx.battingTeamName} ${ctx.runs}/${ctx.wickets} — top of the table, ${me - leader.score}${unit} clear of ${leader.name}.`;
+  }
+  return `${ctx.battingTeamName} ${ctx.runs}/${ctx.wickets} — need ${leader.score - me + 1}${unit} more to top ${leader.name}.`;
+}
+
 function situationNarrative(state, ctx) {
+  if (ctx.pairs) return pairsSituation(state, ctx);
   if (ctx.test) return testSituation(state, ctx);
   const lms = state.config.lastManStanding;
   const wktsToLMS = ctx.wicketsLeft - 1;
@@ -388,6 +409,12 @@ export function generateNarrative(state, career) {
 
   if (state.status === 'innings-break') {
     const inn = currentInnings(state);
+    if (ctx.pairs) {
+      const p = ctx.pairs;
+      const unit = p.scoring === 'survival' ? ' pts' : '';
+      const top = p.standings[0];
+      return `${ctx.battingTeamName} finish on ${p.score}${unit}. ${top.name} top the table on ${top.score}${unit}.`;
+    }
     if (ctx.test) {
       const t = ctx.test;
       const unit = t.scoring === 'survival' ? ' pts' : '';

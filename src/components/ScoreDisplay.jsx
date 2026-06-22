@@ -12,7 +12,8 @@ export default function ScoreDisplay({ context, narrative, matchLabel, onSwapStr
   if (!context) return null;
   const c = context;
   const isFinal = matchLabel === 'Final';
-  const isTest = !!c.test;
+  // Both Test and Pairs are unlimited-overs formats (no ball clock, wkts-left).
+  const isTest = !!c.test || !!c.pairs;
 
   return (
     <div className="space-y-3">
@@ -133,8 +134,9 @@ export default function ScoreDisplay({ context, narrative, matchLabel, onSwapStr
         </div>
       )}
 
-      {/* Opening pair picker — only before the first ball of the innings */}
-      {c.atInningsStart && onSetOpeners && (
+      {/* Opening pair picker — only before the first ball, and only when there's
+          a partner to choose (skipped in Single mode, where it's a lone batter). */}
+      {c.atInningsStart && onSetOpeners && c.lineup.length >= 2 && (
         <OpenersPicker
           lineup={c.lineup}
           strikerId={c.strikerId}

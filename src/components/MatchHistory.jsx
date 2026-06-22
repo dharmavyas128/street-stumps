@@ -233,6 +233,29 @@ function Shell({ icon: Icon, tint, title, date, line1, line2, inProgress, isOwne
 function MatchRow({ record, onOpen, onDelete, isOwner }) {
   const { state, savedAt, status } = record;
   const inProgress = status === 'in_progress';
+  const isUnit = !!state.config?.pairs;
+
+  if (isUnit) {
+    const single = state.config.testMode === 'single';
+    const n = state.config.pairs?.length ?? 0;
+    const played = state.innings.filter(Boolean).length;
+    const noun = single ? 'players' : 'pairs';
+    return (
+      <Shell
+        icon={Trophy}
+        tint="bg-neon/10 text-neon ring-neon/20"
+        title={single ? `Single · ${n} players` : `Pairs · ${n} teams`}
+        date={dateOf(savedAt)}
+        line1={state.result?.text || `${played}/${n} ${noun} batted`}
+        line2={(state.config.pairs || []).map((p) => p.name).join(', ')}
+        inProgress={inProgress}
+        isOwner={isOwner}
+        onOpen={onOpen}
+        onDelete={onDelete}
+      />
+    );
+  }
+
   const lineFor = (inn) =>
     inn ? `${teamName(state, inn.battingTeamId)} ${inn.runs}/${inn.wickets} (${oversText(inn.legalBalls)})` : '';
   const [a, b] = state.innings;

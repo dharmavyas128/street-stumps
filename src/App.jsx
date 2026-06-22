@@ -26,6 +26,8 @@ import MyPlayers from './components/MyPlayers';
 import Leaderboard from './components/Leaderboard';
 import MatchSetup from './components/MatchSetup';
 import TestModePicker from './components/TestModePicker';
+import PairsSetup from './components/PairsSetup';
+import SingleSetup from './components/SingleSetup';
 import PlayerSetup from './components/PlayerSetup';
 import TossScreen from './components/TossScreen';
 import TournamentSetup from './components/TournamentSetup';
@@ -612,7 +614,31 @@ export default function App() {
           />
         )}
 
-        {view === 'test' && status === 'setup' && draft.testMode && (
+        {/* Pairs: single-screen setup → random order → straight to play */}
+        {view === 'test' && status === 'setup' && draft.testMode === 'pairs' && (
+          <PairsSetup
+            initial={draft}
+            onBack={() => setDraft((d) => ({ ...d, testMode: undefined }))}
+            onNext={(form) => {
+              setDraft((d) => ({ ...d, ...form }));
+              engine.setupMatch(form);
+            }}
+          />
+        )}
+
+        {/* Single: solo setup → random order → straight to play */}
+        {view === 'test' && status === 'setup' && draft.testMode === 'single' && (
+          <SingleSetup
+            initial={draft}
+            onBack={() => setDraft((d) => ({ ...d, testMode: undefined }))}
+            onNext={(form) => {
+              setDraft((d) => ({ ...d, ...form }));
+              engine.setupMatch(form);
+            }}
+          />
+        )}
+
+        {view === 'test' && status === 'setup' && draft.testMode && draft.testMode !== 'pairs' && draft.testMode !== 'single' && (
           <>
             <WizardProgress steps={QUICK_STEPS} current={step} />
             {step === 'setup' && <MatchSetup initial={draft} onNext={handleSetupNext} format="test" />}

@@ -133,6 +133,52 @@ function makeInnings(config, battingTeamId, bowlingTeamId) {
   };
 }
 
+/** A single pair's innings — two batters, both in, the survivor bats on alone. */
+function makePairInnings(config, pairId) {
+  const pair = config.pairs.find((p) => p.id === pairId);
+  const names = pair?.players || [];
+  const batsmen = names.slice(0, 2).map((name, i) => ({
+    id: `${pairId}_b${i}`,
+    name: (name && String(name).trim()) || `Batter ${i + 1}`,
+    runs: 0,
+    balls: 0,
+    fours: 0,
+    sixes: 0,
+    status: BATSMAN_STATUS.NOT_OUT,
+    dismissal: null,
+    isCaptain: false,
+  }));
+
+  return {
+    battingTeamId: pairId,
+    bowlingTeamId: null, // open — any player not in this pair may bowl
+    runs: 0,
+    wickets: 0,
+    legalBalls: 0,
+    extras: { wides: 0, noBalls: 0, byes: 0, legByes: 0 },
+    batsmen,
+    strikerId: batsmen[0].id,
+    nonStrikerId: batsmen[1]?.id ?? null,
+    nextBatsmanIndex: 2, // no reserves — survivor bats on alone after a wicket
+    timeline: [],
+    bowlers: [],
+    currentBowlerId: null,
+    lastBowlerId: null,
+    currentOverConceded: 0,
+    declared: false,
+  };
+}
+
+/** Fisher–Yates shuffle (returns a new array). */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /** Normalise raw setup-form values into a clean config object. */
 export function buildConfig(form) {
   const teamAName = (form.teamAName || 'Team A').trim() || 'Team A';
@@ -140,12 +186,23 @@ export function buildConfig(form) {
   const playersPerTeam = clampInt(form.playersPerTeam, 1, 15, 6);
 
   const format = form.format === 'test' ? 'test' : 'limited';
+  // Pairs & Single are both "unit" formats — a list of sides that each bat once.
+  // A pair is two batters; a single is one. Both flow through `config.pairs`.
+  const pairs =
+    format === 'test' && form.testMode === 'pairs'
+      ? normalizePairs(form.pairs)
+      : format === 'test' && form.testMode === 'single'
+        ? normalizeSingles(form.players)
+        : null;
 
   return {
-    teams: {
-      A: { id: 'A', name: teamAName },
-      B: { id: 'B', name: teamBName },
-    },
+    teams: pairs
+      ? Object.fromEntries(pairs.map((p) => [p.id, { id: p.id, name: p.name }]))
+      : {
+          A: { id: 'A', name: teamAName },
+          B: { id: 'B', name: teamBName },
+        },
+    pairs, // null unless Pairs mode — each entry { id, name, players:[2] }
     totalOvers: clampInt(form.totalOvers, 1, 100, 6),
     playersPerTeam,
     lastManStanding: !!form.lastManStanding,
@@ -190,6 +247,37 @@ function normalizeCaptain(v, count) {
   return null;
 }
 
+/**
+ * Pairs mode — each "team" is exactly two batters. Normalise the setup list
+ * into [{ id:'p0', name, players:[2 names] }, …], padded to at least 2 pairs.
+ */
+function normalizePairs(arr) {
+  const list = Array.isArray(arr) ? arr : [];
+  const pairs = list.slice(0, 12).map((p, i) => ({
+    id: `p${i}`,
+    name: (p?.name && String(p.name).trim()) || `Pair ${i + 1}`,
+    players: normalizeNames(p?.players, 2),
+  }));
+  while (pairs.length < 2) {
+    const i = pairs.length;
+    pairs.push({ id: `p${i}`, name: `Pair ${i + 1}`, players: normalizeNames([], 2) });
+  }
+  return pairs;
+}
+
+/**
+ * Single mode — every player is their own side. Normalise a flat list of names
+ * into the same unit shape as pairs, with one batter each (the side's name IS
+ * the player's name). Padded to at least 2 players.
+ */
+function normalizeSingles(arr) {
+  const names = (Array.isArray(arr) ? arr : [])
+    .slice(0, 24)
+    .map((n, i) => (n && String(n).trim()) || `Player ${i + 1}`);
+  while (names.length < 2) names.push(`Player ${names.length + 1}`);
+  return names.map((name, i) => ({ id: `p${i}`, name, players: [name] }));
+}
+
 function normalizeToss(toss) {
   const winnerId = toss?.winnerId === 'B' ? 'B' : 'A';
   const decision = toss?.decision === 'bowl' ? 'bowl' : 'bat';
@@ -217,6 +305,10 @@ function clampInt(v, min, max, fallback) {
 // ---------------------------------------------------------------------------
 
 export function maxWickets(config) {
+  // A single is one batter (out = done).
+  if (config.testMode === 'single') return 1;
+  // Pairs: both out by default; opt out of last-man to end on first dismissal.
+  if (config.testMode === 'pairs') return config.lastManStanding === false ? 1 : 2;
   const lim = config.lastManStanding
     ? config.playersPerTeam
     : config.playersPerTeam - 1;
@@ -347,15 +439,24 @@ function idIndex(playerId) {
   return Number.isInteger(i) ? i : -1;
 }
 
+/** Resolve a bowler id like `${teamId}_b${i}` to that player's name. */
+function bowlerName(config, bowlerId) {
+  const idx = idIndex(bowlerId);
+  const sideId = String(bowlerId).split('_b')[0];
+  if (config.pairs) {
+    const pair = config.pairs.find((p) => p.id === sideId);
+    return pair?.players?.[idx] || `Bowler ${idx + 1}`;
+  }
+  return (config.players?.[sideId] || [])[idx] || `Bowler ${idx + 1}`;
+}
+
 /** Set the bowler for the upcoming over, creating a stat record on first use. */
 function selectBowler(inn, config, bowlerId) {
   let entry = inn.bowlers.find((b) => b.id === bowlerId);
   if (!entry) {
-    const roster = config.players?.[inn.bowlingTeamId] || [];
-    const idx = idIndex(bowlerId);
     entry = {
       id: bowlerId,
-      name: roster[idx] || `Bowler ${idx + 1}`,
+      name: bowlerName(config, bowlerId),
       balls: 0,
       runs: 0, // runs charged to the bowler (off bat + wides + no-balls)
       wickets: 0,
@@ -563,8 +664,9 @@ function teamTotal(state, teamId) {
   );
 }
 
-/** Total number of innings in this Test (2 or 4). */
-const totalTestInnings = (config) => config.inningsPerSide * 2;
+/** Total number of innings in this Test — one per pair, or 2/4 for team Test. */
+const totalTestInnings = (config) =>
+  config.pairs ? config.pairs.length : config.inningsPerSide * 2;
 
 /** Is the given innings index the final (chasing) innings of the Test? */
 function isFinalTestInnings(state) {
@@ -617,11 +719,57 @@ function closeTestInnings(state) {
 
   if (last || inningsVictory) {
     state.status = 'complete';
-    state.result = computeTestResult(state);
+    state.result =
+      state.config.pairs ? computePairsResult(state) : computeTestResult(state);
   } else {
     state.status = 'innings-break';
   }
   return state;
+}
+
+/** Current pairs ranking — every pair that has batted, highest score first. */
+export function pairStandings(state) {
+  const { config } = state;
+  return state.innings
+    .map((inn) =>
+      inn
+        ? {
+            pairId: inn.battingTeamId,
+            name: teamName(state, inn.battingTeamId),
+            score: inningsScore(inn, config),
+            wickets: inn.wickets,
+            out: inn.wickets >= maxWickets(config) || inn.declared,
+          }
+        : null
+    )
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score);
+}
+
+/** Highest pair total wins, in runs or survival points. Ties share the top. */
+export function computePairsResult(state) {
+  const { config } = state;
+  const unit = config.scoring === 'survival' ? 'point' : 'run';
+  const s = (n) => (n === 1 ? '' : 's');
+  const standings = pairStandings(state);
+  const top = standings[0];
+  const tiedTop = standings.filter((x) => x.score === top.score);
+
+  if (tiedTop.length > 1) {
+    return {
+      winnerId: null,
+      type: 'tie',
+      text: `Tied — ${tiedTop.map((t) => t.name).join(' & ')} level on ${top.score} ${unit}${s(top.score)}`,
+      standings,
+    };
+  }
+  const margin = top.score - (standings[1]?.score ?? 0);
+  return {
+    winnerId: top.pairId,
+    type: 'win',
+    text: `${top.name} won by ${margin} ${unit}${s(margin)}`,
+    standings,
+  };
 }
 
 function finalizeTest(state) {
@@ -802,6 +950,22 @@ export function setupMatch(form) {
         : 'A';
   const bowlingFirst = battingFirst === 'A' ? 'B' : 'A';
 
+  if (config.format === 'test' && config.pairs) {
+    // Batting order of the sides (pairs or singles) is drawn at random.
+    const battingOrder = shuffle(config.pairs.map((p) => p.id));
+    const innings = new Array(config.pairs.length).fill(null);
+    innings[0] = makePairInnings(config, battingOrder[0]);
+    return {
+      status: 'live',
+      config,
+      inningsIndex: 0,
+      battingOrder,
+      target: null,
+      innings,
+      result: null,
+    };
+  }
+
   if (config.format === 'test') {
     const innings = new Array(totalTestInnings(config)).fill(null);
     innings[0] = makeInnings(config, battingFirst, bowlingFirst);
@@ -848,6 +1012,14 @@ export function matchReducer(state, action) {
     case 'START_NEXT_INNINGS': {
       if (state.status !== 'innings-break') return state;
       const next = structuredClone(state);
+
+      if (next.config.pairs) {
+        const nextIdx = next.inningsIndex + 1;
+        next.innings[nextIdx] = makePairInnings(next.config, next.battingOrder[nextIdx]);
+        next.inningsIndex = nextIdx;
+        next.status = 'live';
+        return next;
+      }
 
       if (next.config.format === 'test') {
         const nextIdx = next.inningsIndex + 1;
@@ -1027,6 +1199,25 @@ export function bowlerEconomy(bowler) {
  *  - disabled: just bowled the previous over (no two in a row)
  */
 function bowlingRoster(state, inn) {
+  // Unit modes: anyone NOT in the batting side may bowl (grouped by their side).
+  if (state.config.pairs) {
+    const roster = [];
+    for (const pair of state.config.pairs) {
+      if (pair.id === inn.battingTeamId) continue;
+      pair.players.forEach((name, i) => {
+        const playerId = `${pair.id}_b${i}`;
+        roster.push({
+          id: playerId,
+          name,
+          group: pair.name,
+          isCaptain: false,
+          disabled: playerId === inn.lastBowlerId,
+        });
+      });
+    }
+    return roster;
+  }
+
   const id = inn.bowlingTeamId;
   const roster = state.config.players?.[id] || [];
   const captainIdx = state.config.captains?.[id];
@@ -1050,16 +1241,19 @@ export function getMatchContext(state) {
 
   const wktsLeft = maxWickets(state.config) - inn.wickets;
   const currentBowler = getCurrentBowler(inn);
+  const isPairs = !!state.config.pairs; // Pairs OR Single (both unit formats)
+  const isTeamTest = state.config.format === 'test' && !isPairs;
   const isTest = state.config.format === 'test';
-  // A chase is the final innings of a Test, or the 2nd innings of a limited game.
+  // A chase is the final innings of a team Test, or the 2nd innings of a limited
+  // game. Pairs never chase — every pair plays for the highest standalone score.
   const chasing =
-    state.target != null && (isTest ? isFinalTestInnings(state) : state.inningsIndex === 1);
+    state.target != null && (isTeamTest ? isFinalTestInnings(state) : state.inningsIndex === 1);
   const score = inningsScore(inn, state.config); // scoring-aware (runs or survival points)
   const ctx = {
     battingTeamId: inn.battingTeamId,
     battingTeamName: teamName(state, inn.battingTeamId),
     bowlingTeamId: inn.bowlingTeamId,
-    bowlingTeamName: teamName(state, inn.bowlingTeamId),
+    bowlingTeamName: isPairs ? 'the field' : teamName(state, inn.bowlingTeamId),
     runs: inn.runs,
     wickets: inn.wickets,
     maxWickets: maxWickets(state.config),
@@ -1074,8 +1268,8 @@ export function getMatchContext(state) {
     ballsRemaining: ballsRemaining(state),
     rrr: requiredRunRate(state),
     runsNeeded: chasing ? Math.max(0, state.target - score) : null,
-    // ---- Test format context (null for limited-overs games) ----
-    test: isTest
+    // ---- Team Test context (null for limited-overs & Pairs games) ----
+    test: isTeamTest
       ? {
           scoring: state.config.scoring,
           points: inn.timeline.length, // this innings' survival points
@@ -1088,6 +1282,20 @@ export function getMatchContext(state) {
           lead: teamTotal(state, inn.battingTeamId) - teamTotal(state, inn.bowlingTeamId),
           canDeclare: inn.legalBalls > 0 && !isFinalTestInnings(state),
           followOnAvailable: followOnAvailable(state),
+        }
+      : null,
+    // ---- Unit context (Pairs OR Single; null otherwise) ----
+    pairs: isPairs
+      ? {
+          mode: state.config.testMode, // 'pairs' | 'single'
+          scoring: state.config.scoring,
+          points: inn.timeline.length,
+          score, // this side's headline score (runs or points)
+          pairNumber: state.inningsIndex + 1,
+          totalPairs: totalTestInnings(state.config),
+          isFinalPair: isFinalTestInnings(state),
+          canDeclare: inn.legalBalls > 0, // any side may declare, incl. the last
+          standings: pairStandings(state),
         }
       : null,
     striker: getBatsman(inn, inn.strikerId),
@@ -1114,7 +1322,7 @@ export function getMatchContext(state) {
       })),
     // ---- bowling ----
     bowling: {
-      teamName: teamName(state, inn.bowlingTeamId),
+      teamName: isPairs ? 'Fielding side' : teamName(state, inn.bowlingTeamId),
       roster: bowlingRoster(state, inn),
       bowlers: inn.bowlers,
       currentBowler,
@@ -1135,6 +1343,10 @@ export function playerName(state, id) {
   if (!id) return '';
   const [team, rest] = String(id).split('_b');
   const idx = Number(rest);
+  if (state.config?.pairs) {
+    const pair = state.config.pairs.find((p) => p.id === team);
+    if (pair) return pair.players?.[idx] || id;
+  }
   return state.config?.players?.[team]?.[idx] || id;
 }
 

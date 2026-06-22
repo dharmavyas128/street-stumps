@@ -33,14 +33,14 @@ export default function TestModePicker({ onBack, onPick }) {
         <ModeOption
           icon={UserPlus}
           title="Pairs"
-          subtitle="Two-a-side — every pair bats a set number of overs."
-          comingSoon
+          subtitle="Two-a-side — every pair bats until both are out. Highest total wins."
+          onClick={() => onPick('pairs')}
         />
         <ModeOption
           icon={User}
           title="Single"
-          subtitle="One-on-one — solo batter vs solo bowler."
-          comingSoon
+          subtitle="Everyone for themselves — each player bats solo. Highest score wins."
+          onClick={() => onPick('single')}
         />
       </div>
     </div>

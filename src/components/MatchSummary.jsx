@@ -19,6 +19,7 @@ export default function MatchSummary({ state, footer, matchLabel }) {
   const tie = result?.type === 'tie' || result?.type === 'draw';
   const awards = computeAwards(state);
   const isFinal = matchLabel === 'Final';
+  const isPairs = !!config?.pairs; // Pairs OR Single — both show final standings
 
   return (
     <div className="space-y-4 animate-pop-in">
@@ -66,6 +67,11 @@ export default function MatchSummary({ state, footer, matchLabel }) {
           Match Complete
         </p>
       </div>
+
+      {/* Pairs final standings */}
+      {isPairs && result?.standings && (
+        <PairsStandingsCard standings={result.standings} scoring={config.scoring} winnerId={result.winnerId} />
+      )}
 
       {/* Achievements */}
       {awards && <AwardsCard awards={awards} />}
@@ -146,7 +152,7 @@ function InningsCard({ inn, config, index, state }) {
       {inn.bowlers && inn.bowlers.length > 0 && (
         <div className="mt-3 border-t border-white/10 pt-3">
           <div className="mb-1 grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            <span>{teamName(state, inn.bowlingTeamId)} bowling</span>
+            <span>{inn.bowlingTeamId ? `${teamName(state, inn.bowlingTeamId)} bowling` : 'Bowling'}</span>
             <span className="w-8 text-right">O</span>
             <span className="w-6 text-right">M</span>
             <span className="w-8 text-right">R-W</span>
@@ -172,6 +178,52 @@ function InningsCard({ inn, config, index, state }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------------- Pairs standings ---------------- */
+
+function PairsStandingsCard({ standings, scoring, winnerId }) {
+  const unit = scoring === 'survival' ? 'pts' : 'runs';
+  return (
+    <div className="glass p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <Trophy size={16} className="text-neon" />
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-200">
+          Final Standings
+        </h3>
+      </div>
+      <div className="space-y-1">
+        {standings.map((s, i) => {
+          const won = s.pairId === winnerId;
+          return (
+            <div
+              key={s.pairId}
+              className={`grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl px-3 py-2.5 ${
+                won ? 'border border-neon/30 bg-neon/[0.08]' : 'odd:bg-white/[0.02]'
+              }`}
+            >
+              <span className={`grid h-6 w-6 place-items-center rounded-lg text-xs font-extrabold ${
+                i === 0 ? 'bg-neon/15 text-neon ring-1 ring-neon/30' : 'bg-white/5 text-slate-400'
+              }`}>
+                {i + 1}
+              </span>
+              <span className="flex min-w-0 items-center gap-1.5 truncate text-sm font-semibold text-slate-100">
+                {won && <Crown size={13} className="shrink-0 text-neon" fill="currentColor" />}
+                {s.name}
+                <span className="text-[11px] font-normal text-slate-500">
+                  · {s.wickets} wkt{s.wickets === 1 ? '' : 's'}
+                </span>
+              </span>
+              <span className="scoreboard shrink-0 text-base font-bold text-white">
+                {s.score}
+                <span className="ml-1 text-[10px] font-medium text-slate-500">{unit}</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

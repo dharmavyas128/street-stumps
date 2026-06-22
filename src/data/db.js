@@ -36,12 +36,21 @@ function rowToRecord(row) {
   };
 }
 
-/** All of the signed-in user's saved games, newest first. */
+/**
+ * All of the signed-in user's OWN saved games, newest first. The games table's
+ * RLS also lets you read friends' games (for live-score watching), so we must
+ * explicitly scope to our own user_id here — otherwise a friend's finished games
+ * would leak into Match History and career stats.
+ */
 export async function listGames() {
   if (!isSupabaseConfigured) return [];
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth?.user?.id;
+  if (!uid) return [];
   const { data, error } = await supabase
     .from('games')
     .select('*')
+    .eq('user_id', uid)
     .order('updated_at', { ascending: false });
   if (error) throw error;
   return (data || []).map(rowToRecord);

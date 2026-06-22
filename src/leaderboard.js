@@ -8,6 +8,7 @@
  * demo set so the leaderboard is never empty.
  */
 import { loadMatches } from './storage';
+import { listFriendGames } from './data/db';
 
 const REAL_THRESHOLD = 5; // need at least this many real players to skip demo
 
@@ -97,9 +98,9 @@ function derive(p) {
 }
 
 /** Pull every COMPLETED match state out of saved history, oldest first. */
-async function collectStates() {
+async function collectStates(loadFn = loadMatches) {
   const out = [];
-  for (const r of await loadMatches()) {
+  for (const r of await loadFn()) {
     if (r.status === 'in_progress') continue; // half-finished games don't count
     const at = r.savedAt || '';
     if (r.state) out.push({ state: r.state, at });
@@ -226,6 +227,11 @@ function aggregateStates(entries, { byTeam = false } = {}) {
 
 export async function careerStats() {
   return aggregateStates(await collectStates());
+}
+
+/** Career stats for a friend — derived from their own saved games. */
+export async function friendCareerStats(userId) {
+  return aggregateStates(await collectStates(() => listFriendGames(userId)));
 }
 
 /** Real career stats, or demo data when there isn't enough yet. */

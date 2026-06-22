@@ -15,21 +15,26 @@ export default function MyPlayers({ onBack, onChange }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [viewPlayer, setViewPlayer] = useState(null); // { name, subtitle, avatar } | null
-  // Roster players don't store an avatar, so we borrow a matching friend's
-  // avatar by name (lowercased name -> avatar config string).
+  const [viewPlayer, setViewPlayer] = useState(null); // { name, subtitle, avatar, userId? } | null
+  // Roster players don't store avatar/userId, so we borrow from matching friends by name.
   const [friendAvatars, setFriendAvatars] = useState({});
+  const [friendUserIds, setFriendUserIds] = useState({});
 
   const avatarFor = (name) => friendAvatars[(name || '').trim().toLowerCase()] || null;
+  const userIdFor = (name) => friendUserIds[(name || '').trim().toLowerCase()] || null;
 
   useEffect(() => {
     listFriends()
       .then((fr) => {
-        const map = {};
+        const avatars = {};
+        const ids = {};
         for (const f of fr) {
-          if (f.avatar) map[(f.name || '').trim().toLowerCase()] = f.avatar;
+          const key = (f.name || '').trim().toLowerCase();
+          if (f.avatar) avatars[key] = f.avatar;
+          if (f.friend_id) ids[key] = f.friend_id;
         }
-        setFriendAvatars(map);
+        setFriendAvatars(avatars);
+        setFriendUserIds(ids);
       })
       .catch(() => {});
   }, []);
@@ -118,6 +123,7 @@ export default function MyPlayers({ onBack, onChange }) {
                     name: p.name,
                     subtitle: `${p.battingHand === 'left' ? 'Left-hand bat' : 'Right-hand bat'} · ${p.bowlingStyle}`,
                     avatar: avatarFor(p.name),
+                    userId: userIdFor(p.name),
                   })
                 }
                 className="btn-press flex min-w-0 flex-1 items-center gap-3 text-left"
@@ -162,6 +168,8 @@ export default function MyPlayers({ onBack, onChange }) {
         open={!!viewPlayer}
         name={viewPlayer?.name}
         subtitle={viewPlayer?.subtitle}
+        avatar={viewPlayer?.avatar}
+        userId={viewPlayer?.userId}
         onClose={() => setViewPlayer(null)}
       />
     </div>

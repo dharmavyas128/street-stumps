@@ -654,6 +654,7 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
                               name: f.name,
                               subtitle: `${f.batting_hand === 'left' ? 'LHB' : 'RHB'} · ${f.bowling_style}`,
                               avatar: f.avatar,
+                              userId: f.friend_id,
                             })
                           }
                           className="btn-press flex min-w-0 flex-1 items-center gap-2.5 text-left"
@@ -787,6 +788,7 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
         name={viewPlayer?.name}
         subtitle={viewPlayer?.subtitle}
         avatar={viewPlayer?.avatar}
+        userId={viewPlayer?.userId}
         onClose={() => setViewPlayer(null)}
       />
     </div>

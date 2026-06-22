@@ -56,6 +56,19 @@ export async function listGames() {
   return (data || []).map(rowToRecord);
 }
 
+/** All completed games for a specific user (RLS allows reading accepted friends' games). */
+export async function listFriendGames(friendUserId) {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from('games')
+    .select('*')
+    .eq('user_id', friendUserId)
+    .eq('status', 'completed')
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(rowToRecord);
+}
+
 /** Insert a new game row; returns its record. */
 export async function insertGame({ kind, status, data }) {
   ensure();

@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { careerStats } from '../leaderboard';
+import { careerStats, friendCareerStats } from '../leaderboard';
 import DiceBearAvatar from './DiceBearAvatar';
 import { parseConfig } from '../avatars';
 import PlayerStatsCard from './PlayerStatsCard';
 
 /**
- * PlayerStatsSheet — a bottom-sheet that shows one player's career record
- * (stats, form, best performances, achievements). Stats are derived by NAME
- * from this account's saved games, so it works for a friend or a roster player
- * exactly as it does for your own profile.
+ * PlayerStatsSheet — a bottom-sheet that shows one player's career record.
+ * Pass `userId` to load stats from that user's own games (for friends);
+ * omit it to derive from this account's games (for roster players / yourself).
  */
-export default function PlayerStatsSheet({ open, name, subtitle, avatar, onClose }) {
+export default function PlayerStatsSheet({ open, name, subtitle, avatar, userId, onClose }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +19,8 @@ export default function PlayerStatsSheet({ open, name, subtitle, avatar, onClose
     let on = true;
     setLoading(true);
     setStats(null);
-    careerStats()
+    const load = userId ? friendCareerStats(userId) : careerStats();
+    load
       .then((all) => {
         if (!on) return;
         setStats(all.find((p) => p.name === name) || null);
@@ -30,7 +30,7 @@ export default function PlayerStatsSheet({ open, name, subtitle, avatar, onClose
     return () => {
       on = false;
     };
-  }, [open, name]);
+  }, [open, name, userId]);
 
   if (!open) return null;
 

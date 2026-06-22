@@ -107,21 +107,24 @@ export default function Leaderboard({ onBack }) {
   const [selectedPlayers, setSelectedPlayers] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [format, setFormat] = useState('all'); // all | limited | test
 
   useEffect(() => {
     let on = true;
-    getLeaderboard()
+    setLoading(true);
+    getLeaderboard(format)
       .then((res) => {
         if (!on) return;
         setPlayers(res.players);
         setIsDemo(res.isDemo);
+        setSelectedPlayers([]);
       })
       .catch(() => {})
       .finally(() => on && setLoading(false));
     return () => {
       on = false;
     };
-  }, []);
+  }, [format]);
 
   const toggleSelect = (id) => {
     setSelectedPlayers((sel) => {
@@ -182,6 +185,25 @@ export default function Leaderboard({ onBack }) {
           Showing sample players — your real career stats appear here once you've saved a few games.
         </p>
       )}
+      {/* Format toggle — cricket tracks formats separately */}
+      <div className="mb-3 flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+        {[
+          { id: 'all', label: 'All' },
+          { id: 'limited', label: 'Limited' },
+          { id: 'test', label: 'Test' },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setFormat(t.id)}
+            className={`btn-press flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+              format === t.id ? 'bg-neon/15 text-neon ring-1 ring-neon/30' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {isCompareMode && (
         <p className="mb-2 px-1 text-[11px] text-neon">Pick 2 players to compare ({selected.length}/2).</p>
       )}
@@ -190,6 +212,12 @@ export default function Leaderboard({ onBack }) {
         <div className="glass flex items-center justify-center gap-2 p-10 text-sm text-slate-400">
           <Loader2 size={18} className="animate-spin text-neon" />
           Crunching the numbers…
+        </div>
+      ) : players.length === 0 ? (
+        <div className="glass rounded-2xl p-8 text-center text-sm text-slate-400">
+          {format === 'test'
+            ? 'No Test matches yet — play a Test to start a Test leaderboard.'
+            : 'No games yet for this format.'}
         </div>
       ) : (
         <LeaderboardTable

@@ -16,15 +16,59 @@ const BADGES = [
   { id: 'veteran',      label: '10-Match Veteran', emoji: '🏆', check: (s) => s.innings >= 10 },
 ];
 
-export default function PlayerStatsCard({ stats, emptyMessage = 'No stats yet — play a match to build a record.' }) {
-  if (!stats) {
+const FORMAT_TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'limited', label: 'Limited' },
+  { id: 'test', label: 'Test' },
+];
+
+/**
+ * Pass a single `stats` object for a one-off view, OR `byFormat`
+ * ({ all, limited, test }) to show a Limited / Test format toggle. Cricket
+ * tracks formats separately, so a player's Test record stands on its own.
+ */
+export default function PlayerStatsCard({ stats, byFormat, emptyMessage = 'No stats yet — play a match to build a record.' }) {
+  const [fmt, setFmt] = useState('all');
+  const hasToggle = !!byFormat;
+  const active = hasToggle ? byFormat[fmt] : stats;
+
+  const toggle = hasToggle ? (
+    <div className="mb-4 flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+      {FORMAT_TABS.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => setFmt(t.id)}
+          className={`btn-press flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+            fmt === t.id ? 'bg-neon/15 text-neon ring-1 ring-neon/30' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  if (!active) {
     return (
-      <div className="glass rounded-2xl p-4 text-center text-xs text-slate-500">
-        {emptyMessage}
+      <div>
+        {toggle}
+        <div className="glass rounded-2xl p-4 text-center text-xs text-slate-500">
+          {fmt === 'test' ? 'No Test matches yet.' : fmt === 'limited' ? 'No limited-overs games yet.' : emptyMessage}
+        </div>
       </div>
     );
   }
 
+  const stats2 = active;
+  return (
+    <div>
+      {toggle}
+      <PlayerStatsBody stats={stats2} />
+    </div>
+  );
+}
+
+function PlayerStatsBody({ stats }) {
   const last5 = stats.last5 || [];
   const achievements = BADGES.map((b) => ({ ...b, earned: b.check(stats) }));
   const tiles = [

@@ -274,7 +274,22 @@ function deliveryComment(inn, delivery, career, seed) {
 // Situation narrative (fallback)
 // ---------------------------------------------------------------------------
 
+function testSituation(state, ctx) {
+  const t = ctx.test;
+  const unit = t.scoring === 'survival' ? ' pts' : '';
+  if (t.isFinalInnings && ctx.runsNeeded != null) {
+    return `${ctx.battingTeamName} chasing ${state.target}${unit} — ${ctx.runsNeeded}${unit} to win, ${ctx.wicketsLeft} wkt${ctx.wicketsLeft === 1 ? '' : 's'} left.`;
+  }
+  if (ctx.legalBalls === 0) {
+    return `${tossSummary(state.config)}. ${ctx.battingTeamName} begin innings ${t.inningsNumber} of ${t.totalInnings} — no over limit, bat as long as you can.`;
+  }
+  const leadTxt =
+    t.lead > 0 ? `lead by ${t.lead}${unit}` : t.lead < 0 ? `trail by ${-t.lead}${unit}` : 'all square';
+  return `${ctx.battingTeamName} ${ctx.runs}/${ctx.wickets} — innings ${t.inningsNumber} of ${t.totalInnings}, ${leadTxt}.`;
+}
+
 function situationNarrative(state, ctx) {
+  if (ctx.test) return testSituation(state, ctx);
   const lms = state.config.lastManStanding;
   const wktsToLMS = ctx.wicketsLeft - 1;
 
@@ -364,6 +379,7 @@ export function generateNarrative(state, career) {
 
   if (state.status === 'complete' && state.result) {
     if (state.result.type === 'tie') return "Scores level — you can't separate them! 🤝";
+    if (state.result.type === 'draw') return `${state.result.text} — honours even after a hard-fought Test. 🤝`;
     return `${state.result.text}. What a contest! 🏆`;
   }
 
@@ -372,6 +388,16 @@ export function generateNarrative(state, career) {
 
   if (state.status === 'innings-break') {
     const inn = currentInnings(state);
+    if (ctx.test) {
+      const t = ctx.test;
+      const unit = t.scoring === 'survival' ? ' pts' : '';
+      if (t.followOnAvailable) {
+        return `${ctx.battingTeamName} close on ${t.score}${unit} with a commanding lead — the follow-on is on the table.`;
+      }
+      const leadTxt =
+        t.lead > 0 ? `lead by ${t.lead}${unit}` : t.lead < 0 ? `trail by ${-t.lead}${unit}` : 'all square';
+      return `Innings ${t.inningsNumber} of ${t.totalInnings} done — ${ctx.battingTeamName} ${leadTxt}.`;
+    }
     const chaser = teamName(state, inn.bowlingTeamId);
     return `Innings break — ${ctx.battingTeamName} post ${ctx.runs}/${ctx.wickets}. ${chaser} need ${state.target} to win.`;
   }

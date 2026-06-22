@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Edit2, Check, LogOut, UserPlus, Hand, Disc3, Search, Trash2, User, Users, Palette, Moon, Sun, Clock, UserCheck, Loader2, Sparkles, Mail, Shuffle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { careerStats } from '../leaderboard';
+import { careerStatsByFormat } from '../leaderboard';
 import {
   findUserByEmail,
   listFriends,
@@ -45,7 +45,7 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
   const [busy, setBusy] = useState(false);
   const [avatarCfg, setAvatarCfg] = useState(() => parseConfig(profile?.avatar));
 
-  // Stats
+  // Stats — per-format ({ all, limited, test }) for the format toggle.
   const [myStats, setMyStats] = useState(null);
   const [viewPlayer, setViewPlayer] = useState(null); // { name, subtitle, avatar } | null
 
@@ -67,8 +67,11 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
 
   useEffect(() => {
     if (!open) { setEditing(false); return; }
-    careerStats()
-      .then((all) => setMyStats(all.find((p) => p.name === profile?.name) || null))
+    careerStatsByFormat()
+      .then((sets) => {
+        const pick = (arr) => arr.find((p) => p.name === profile?.name) || null;
+        setMyStats({ all: pick(sets.all), limited: pick(sets.limited), test: pick(sets.test) });
+      })
       .catch(() => {});
     refreshFriends();
     refreshRequests();
@@ -492,7 +495,7 @@ export default function ProfileSheet({ open, onClose, initialTab = 'profile', on
               )}
 
               {/* Career stats, recent form, best performances & achievements */}
-              <PlayerStatsCard stats={myStats} emptyMessage="Play a match to see your stats here" />
+              <PlayerStatsCard byFormat={myStats} emptyMessage="Play a match to see your stats here" />
 
               {/* Tutorial */}
               <button

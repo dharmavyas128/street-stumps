@@ -24,6 +24,9 @@ const DELIVERY_ACTIONS = new Set([
   'EXTRA',
   'WICKET',
   'START_NEXT_INNINGS',
+  'DECLARE',
+  'ENFORCE_FOLLOW_ON',
+  'DECLARE_DRAW',
 ]);
 
 function init() {
@@ -102,6 +105,9 @@ export function useMatchEngine() {
     () => dispatch({ type: 'START_NEXT_INNINGS' }),
     []
   );
+  const declare = useCallback(() => dispatch({ type: 'DECLARE' }), []);
+  const enforceFollowOn = useCallback(() => dispatch({ type: 'ENFORCE_FOLLOW_ON' }), []);
+  const declareDraw = useCallback(() => dispatch({ type: 'DECLARE_DRAW' }), []);
   const swapStrike = useCallback(() => dispatch({ type: 'SWAP_STRIKE' }), []);
   const setOpeners = useCallback(
     (strikerId, nonStrikerId) =>
@@ -130,6 +136,9 @@ export function useMatchEngine() {
     takeWicket,
     selectBowler,
     startNextInnings,
+    declare,
+    enforceFollowOn,
+    declareDraw,
     swapStrike,
     setOpeners,
     undo,

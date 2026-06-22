@@ -12,6 +12,7 @@ export default function ScoreDisplay({ context, narrative, matchLabel, onSwapStr
   if (!context) return null;
   const c = context;
   const isFinal = matchLabel === 'Final';
+  const isTest = !!c.test;
 
   return (
     <div className="space-y-3">
@@ -57,7 +58,7 @@ export default function ScoreDisplay({ context, narrative, matchLabel, onSwapStr
             <p className="scoreboard text-3xl font-bold leading-none text-white">
               {c.oversText}
             </p>
-            <p className="mt-1 text-xs text-slate-400">of {c.totalOvers}.0</p>
+            <p className="mt-1 text-xs text-slate-400">{isTest ? 'unlimited' : `of ${c.totalOvers}.0`}</p>
           </div>
         </div>
 
@@ -67,12 +68,20 @@ export default function ScoreDisplay({ context, narrative, matchLabel, onSwapStr
           {c.isSecondInnings ? (
             <>
               <Stat icon={Target} label="Need" value={c.runsNeeded} tint="amber" />
-              <Stat
-                icon={Gauge}
-                label="RRR"
-                value={c.rrr != null ? fmt(c.rrr) : '—'}
-                tint="amber"
-              />
+              {isTest ? (
+                <Stat
+                  icon={Gauge}
+                  label="Extras"
+                  value={c.extras.wides + c.extras.noBalls + c.extras.byes + c.extras.legByes}
+                />
+              ) : (
+                <Stat
+                  icon={Gauge}
+                  label="RRR"
+                  value={c.rrr != null ? fmt(c.rrr) : '—'}
+                  tint="amber"
+                />
+              )}
             </>
           ) : (
             <>
@@ -83,7 +92,11 @@ export default function ScoreDisplay({ context, narrative, matchLabel, onSwapStr
                   c.extras.wides + c.extras.noBalls + c.extras.byes + c.extras.legByes
                 }
               />
-              <Stat icon={Target} label="Balls left" value={c.ballsRemaining} />
+              {isTest ? (
+                <Stat icon={Target} label="Wkts left" value={c.wicketsLeft} />
+              ) : (
+                <Stat icon={Target} label="Balls left" value={c.ballsRemaining} />
+              )}
             </>
           )}
         </div>
@@ -91,9 +104,16 @@ export default function ScoreDisplay({ context, narrative, matchLabel, onSwapStr
         {c.isSecondInnings && (
           <p className="relative mt-3 text-center text-xs text-slate-400">
             Target{' '}
-            <span className="scoreboard font-bold text-alert">{c.target}</span> ·{' '}
-            <span className="scoreboard font-bold text-white">{c.ballsRemaining}</span>{' '}
-            balls remaining
+            <span className="scoreboard font-bold text-alert">{c.target}</span>
+            {isTest ? (
+              <> · {c.runsNeeded} {c.test.scoring === 'survival' ? 'pts' : 'runs'} to win</>
+            ) : (
+              <>
+                {' '}·{' '}
+                <span className="scoreboard font-bold text-white">{c.ballsRemaining}</span>{' '}
+                balls remaining
+              </>
+            )}
           </p>
         )}
       </div>

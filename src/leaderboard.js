@@ -97,21 +97,29 @@ function derive(p) {
   return { ...p, ave, sr, econ, bave, last5, points: totalPoints(p) };
 }
 
+/** A saved match state's format, defaulting to limited-overs. */
+const stateFormat = (st) => (st?.config?.format === 'test' ? 'test' : 'limited');
+
 /** Pull every COMPLETED match state out of saved history, oldest first. */
 async function collectStates(loadFn = loadMatches) {
   const out = [];
   for (const r of await loadFn()) {
     if (r.status === 'in_progress') continue; // half-finished games don't count
     const at = r.savedAt || '';
-    if (r.state) out.push({ state: r.state, at });
+    if (r.state) out.push({ state: r.state, at, format: stateFormat(r.state) });
     else if (r.comp) {
+      // Series/tournament fixtures are always limited-overs games.
       for (const f of r.comp.fixtures || []) {
-        if (f.matchState) out.push({ state: f.matchState, at });
+        if (f.matchState) out.push({ state: f.matchState, at, format: 'limited' });
       }
     }
   }
   return out.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 }
+
+/** Keep only the entries of a given format ('all' keeps everything). */
+const byFormat = (states, format) =>
+  format === 'all' ? states : states.filter((e) => e.format === format);
 
 /**
  * Aggregate a set of match states into a derived player array.
@@ -225,22 +233,39 @@ function aggregateStates(entries, { byTeam = false } = {}) {
   return Object.values(players).map(derive);
 }
 
-export async function careerStats() {
-  return aggregateStates(await collectStates());
+export async function careerStats(format = 'all') {
+  return aggregateStates(byFormat(await collectStates(), format));
 }
 
 /** Career stats for a friend — derived from their own saved games. */
-export async function friendCareerStats(userId) {
-  return aggregateStates(await collectStates(() => listFriendGames(userId)));
+export async function friendCareerStats(userId, format = 'all') {
+  return aggregateStates(byFormat(await collectStates(() => listFriendGames(userId)), format));
 }
 
-/** Real career stats, or demo data when there isn't enough yet. */
-export async function getLeaderboard() {
-  const real = await careerStats();
-  if (real.length >= REAL_THRESHOLD) {
-    return { players: real, isDemo: false };
+/**
+ * All three format views in one pass — { all, limited, test }, each a derived
+ * player array. Pass a `loadFn` (e.g. friend games) to scope the source.
+ */
+export async function careerStatsByFormat(loadFn) {
+  const states = loadFn ? await collectStates(loadFn) : await collectStates();
+  return {
+    all: aggregateStates(states),
+    limited: aggregateStates(byFormat(states, 'limited')),
+    test: aggregateStates(byFormat(states, 'test')),
+  };
+}
+
+/**
+ * Real career stats, or demo data when there isn't enough yet. The demo set
+ * only stands in for the combined ('all') view — Limited / Test views always
+ * show real data (even if sparse), so a new format reads true.
+ */
+export async function getLeaderboard(format = 'all') {
+  const real = await careerStats(format);
+  if (format === 'all' && real.length < REAL_THRESHOLD) {
+    return { players: DEMO_PLAYERS.map(derive), isDemo: true };
   }
-  return { players: DEMO_PLAYERS.map(derive), isDemo: true };
+  return { players: real, isDemo: false };
 }
 
 /**

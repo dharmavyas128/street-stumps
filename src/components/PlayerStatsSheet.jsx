@@ -1,29 +1,30 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { careerStats, friendCareerStats } from '../leaderboard';
+import { careerStatsByFormat } from '../leaderboard';
+import { listFriendGames } from '../data/db';
 import DiceBearAvatar from './DiceBearAvatar';
 import { parseConfig } from '../avatars';
 import PlayerStatsCard from './PlayerStatsCard';
 
 /**
- * PlayerStatsSheet — a bottom-sheet that shows one player's career record.
- * Pass `userId` to load stats from that user's own games (for friends);
- * omit it to derive from this account's games (for roster players / yourself).
+ * PlayerStatsSheet — a bottom-sheet that shows one player's career record, with
+ * a Limited / Test format toggle. Pass `userId` to load stats from that user's
+ * own games (for friends); omit it to derive from this account's games.
  */
 export default function PlayerStatsSheet({ open, name, subtitle, avatar, userId, onClose }) {
-  const [stats, setStats] = useState(null);
+  const [byFormat, setByFormat] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!open || !name) return;
     let on = true;
     setLoading(true);
-    setStats(null);
-    const load = userId ? friendCareerStats(userId) : careerStats();
-    load
-      .then((all) => {
+    setByFormat(null);
+    careerStatsByFormat(userId ? () => listFriendGames(userId) : undefined)
+      .then((sets) => {
         if (!on) return;
-        setStats(all.find((p) => p.name === name) || null);
+        const pick = (arr) => arr.find((p) => p.name === name) || null;
+        setByFormat({ all: pick(sets.all), limited: pick(sets.limited), test: pick(sets.test) });
       })
       .catch(() => {})
       .finally(() => on && setLoading(false));
@@ -76,7 +77,7 @@ export default function PlayerStatsSheet({ open, name, subtitle, avatar, userId,
             </div>
           ) : (
             <PlayerStatsCard
-              stats={stats}
+              byFormat={byFormat}
               emptyMessage={`No stats yet for ${name} — they'll appear once they've played a game you've scored.`}
             />
           )}

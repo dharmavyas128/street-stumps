@@ -139,6 +139,8 @@ export function buildConfig(form) {
   const teamBName = (form.teamBName || 'Team B').trim() || 'Team B';
   const playersPerTeam = clampInt(form.playersPerTeam, 1, 15, 6);
 
+  const format = form.format === 'test' ? 'test' : 'limited';
+
   return {
     teams: {
       A: { id: 'A', name: teamAName },
@@ -151,6 +153,15 @@ export function buildConfig(form) {
       form.retirementThreshold && Number(form.retirementThreshold) > 0
         ? Number(form.retirementThreshold)
         : null,
+    // ---- Test format (each side bats up to twice; no over limit) ----
+    format, // 'limited' | 'test'
+    testMode: ['team', 'pairs', 'single'].includes(form.testMode) ? form.testMode : 'team',
+    inningsPerSide: format === 'test' ? clampInt(form.inningsPerSide, 1, 2, 2) : 1,
+    scoring: form.scoring === 'survival' ? 'survival' : 'runs', // survival = 1 point / delivery
+    followOn: {
+      enabled: format === 'test' && !!form.followOn?.enabled,
+      gap: clampInt(form.followOn?.gap, 1, 999, 100),
+    },
     players: {
       A: normalizeNames(form.players?.A, playersPerTeam),
       B: normalizeNames(form.players?.B, playersPerTeam),
@@ -530,9 +541,147 @@ function handleWicket(inn, config, payload) {
 // Innings / match finalisation
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Test format — each side bats up to twice, no over limit. Reuses the same
+// delivery handlers; only the innings sequencing and result logic differ.
+// ---------------------------------------------------------------------------
+
+const otherTeam = (id) => (id === 'A' ? 'B' : 'A');
+
+/** The win-determining score for an innings: real runs, or 1-point-per-delivery. */
+export function inningsScore(inn, config) {
+  if (!inn) return 0;
+  return config?.scoring === 'survival' ? inn.timeline.length : inn.runs;
+}
+
+/** A team's cumulative score across all the innings it has batted. */
+function teamTotal(state, teamId) {
+  return state.innings.reduce(
+    (sum, inn) =>
+      inn && inn.battingTeamId === teamId ? sum + inningsScore(inn, state.config) : sum,
+    0
+  );
+}
+
+/** Total number of innings in this Test (2 or 4). */
+const totalTestInnings = (config) => config.inningsPerSide * 2;
+
+/** Is the given innings index the final (chasing) innings of the Test? */
+function isFinalTestInnings(state) {
+  return state.inningsIndex === totalTestInnings(state.config) - 1;
+}
+
+/**
+ * Who bats in innings `index`. Order is t1, t2, then (4-innings) either the
+ * follow-on side again or back to t1, and finally the chasing side.
+ */
+function testBattingTeamAt(state, index) {
+  const t1 = state.battingFirstId;
+  const t2 = otherTeam(t1);
+  if (index <= 0) return t1;
+  if (index === 1) return t2;
+  if (index === 2) return state.followOnEnforced ? t2 : t1;
+  return state.followOnEnforced ? t1 : t2; // index 3
+}
+
+/**
+ * Can the leader enforce the follow-on right now? Only at the break after the
+ * 2nd innings of a 4-innings Test, when enabled and the lead meets the gap.
+ */
+export function followOnAvailable(state) {
+  const { config } = state;
+  if (config.format !== 'test' || config.inningsPerSide !== 2) return false;
+  if (!config.followOn?.enabled) return false;
+  if (state.status !== 'innings-break' || state.inningsIndex !== 1) return false;
+  const t1 = state.battingFirstId;
+  const lead = teamTotal(state, t1) - teamTotal(state, otherTeam(t1));
+  return lead >= (config.followOn.gap || 1);
+}
+
+/** Close the live Test innings and either break for the next one or finish. */
+function closeTestInnings(state) {
+  const idx = state.inningsIndex;
+  const last = idx >= totalTestInnings(state.config) - 1;
+
+  // Innings victory: the follow-on side, batting twice in a row, is bowled out
+  // still trailing — the match ends without the leader needing to bat again.
+  let inningsVictory = false;
+  if (state.config.inningsPerSide === 2 && state.followOnEnforced && idx === 2) {
+    const inn = currentInnings(state);
+    const t1 = state.battingFirstId;
+    const allOut = inn.wickets >= maxWickets(state.config);
+    if (allOut && teamTotal(state, otherTeam(t1)) < teamTotal(state, t1)) {
+      inningsVictory = true;
+    }
+  }
+
+  if (last || inningsVictory) {
+    state.status = 'complete';
+    state.result = computeTestResult(state);
+  } else {
+    state.status = 'innings-break';
+  }
+  return state;
+}
+
+function finalizeTest(state) {
+  const inn = currentInnings(state);
+  if (!inningsIsOver(state, inn)) return state;
+  return closeTestInnings(state);
+}
+
+/** Win by an innings / by runs / by wickets, in runs or survival points. */
+export function computeTestResult(state) {
+  const { config } = state;
+  const t1 = state.battingFirstId;
+  const unit = config.scoring === 'survival' ? 'point' : 'run';
+  const s = (n) => (n === 1 ? '' : 's');
+
+  // Innings victory (only via the follow-on path).
+  if (config.inningsPerSide === 2 && state.followOnEnforced && state.inningsIndex === 2) {
+    const margin = teamTotal(state, t1) - teamTotal(state, otherTeam(t1));
+    return {
+      winnerId: t1,
+      type: 'win',
+      text: `${config.teams[t1].name} won by an innings and ${margin} ${unit}${s(margin)}`,
+    };
+  }
+
+  const lastInn = currentInnings(state);
+  const chasingId = lastInn.battingTeamId;
+  const defendingId = otherTeam(chasingId);
+  const chasingTotal = teamTotal(state, chasingId);
+  const defendingTotal = teamTotal(state, defendingId);
+
+  if (chasingTotal > defendingTotal) {
+    const wktsInHand = maxWickets(config) - lastInn.wickets;
+    return {
+      winnerId: chasingId,
+      type: 'win',
+      text: `${config.teams[chasingId].name} won by ${wktsInHand} wicket${s(wktsInHand)}`,
+    };
+  }
+  if (chasingTotal === defendingTotal) {
+    return { winnerId: null, type: 'tie', text: 'Match tied — scores level!' };
+  }
+  const margin = defendingTotal - chasingTotal;
+  return {
+    winnerId: defendingId,
+    type: 'win',
+    text: `${config.teams[defendingId].name} won by ${margin} ${unit}${s(margin)}`,
+  };
+}
+
 function inningsIsOver(state, inn) {
   const { config } = state;
   if (inn.wickets >= maxWickets(config)) return true;
+  if (config.format === 'test') {
+    // No over limit. Only the final innings can end on a completed chase.
+    if (isFinalTestInnings(state) && state.target != null && inningsScore(inn, config) >= state.target) {
+      return true;
+    }
+    return false;
+  }
   if (inn.legalBalls >= config.totalOvers * 6) return true;
   // Second innings: chase complete.
   if (state.inningsIndex === 1 && state.target != null && inn.runs >= state.target) {
@@ -544,6 +693,7 @@ function inningsIsOver(state, inn) {
 function finalize(state) {
   const inn = currentInnings(state);
   if (!inn) return state;
+  if (state.config.format === 'test') return finalizeTest(state);
   if (!inningsIsOver(state, inn)) return state;
 
   if (state.inningsIndex === 0) {
@@ -613,6 +763,20 @@ function recomputeInnings(inn) {
 export function recomputeMatch(state) {
   const next = structuredClone(state);
   next.innings.forEach((inn) => recomputeInnings(inn));
+
+  if (next.config?.format === 'test') {
+    const finalInn = next.innings[totalTestInnings(next.config) - 1];
+    if (finalInn) {
+      const chasingId = finalInn.battingTeamId;
+      next.target = teamTotal(next, otherTeam(chasingId)) - teamTotal(next, chasingId) + 1;
+    }
+    // A drawn result was a captain's call — editing scores doesn't undo it.
+    if (next.status === 'complete' && next.result?.type !== 'draw') {
+      next.result = computeTestResult(next);
+    }
+    return next;
+  }
+
   const [first, second] = next.innings;
   if (first && second) {
     next.target = first.runs + 1;
@@ -637,6 +801,21 @@ export function setupMatch(form) {
         ? 'B'
         : 'A';
   const bowlingFirst = battingFirst === 'A' ? 'B' : 'A';
+
+  if (config.format === 'test') {
+    const innings = new Array(totalTestInnings(config)).fill(null);
+    innings[0] = makeInnings(config, battingFirst, bowlingFirst);
+    return {
+      status: 'live',
+      config,
+      inningsIndex: 0,
+      battingFirstId: battingFirst,
+      followOnEnforced: false,
+      target: null,
+      innings,
+      result: null,
+    };
+  }
 
   const state = {
     status: 'live',
@@ -668,11 +847,50 @@ export function matchReducer(state, action) {
 
     case 'START_NEXT_INNINGS': {
       if (state.status !== 'innings-break') return state;
-      const prev = currentInnings(state);
       const next = structuredClone(state);
+
+      if (next.config.format === 'test') {
+        const nextIdx = next.inningsIndex + 1;
+        const battingId = testBattingTeamAt(next, nextIdx);
+        const bowlingId = otherTeam(battingId);
+        next.innings[nextIdx] = makeInnings(next.config, battingId, bowlingId);
+        next.inningsIndex = nextIdx;
+        next.status = 'live';
+        // The final innings is a chase — set the target from the running totals.
+        if (nextIdx === totalTestInnings(next.config) - 1) {
+          next.target = teamTotal(next, otherTeam(battingId)) - teamTotal(next, battingId) + 1;
+        }
+        return next;
+      }
+
+      const prev = currentInnings(state);
       next.innings[1] = makeInnings(state.config, prev.bowlingTeamId, prev.battingTeamId);
       next.inningsIndex = 1;
       next.status = 'live';
+      return next;
+    }
+
+    case 'DECLARE': {
+      if (state.status !== 'live' || state.config.format !== 'test') return state;
+      const inn = currentInnings(state);
+      if (!inn) return state;
+      const next = structuredClone(state);
+      currentInnings(next).declared = true;
+      return closeTestInnings(next);
+    }
+
+    case 'ENFORCE_FOLLOW_ON': {
+      if (!followOnAvailable(state)) return state;
+      const next = structuredClone(state);
+      next.followOnEnforced = true;
+      return next;
+    }
+
+    case 'DECLARE_DRAW': {
+      if (state.status !== 'live' || state.config.format !== 'test') return state;
+      const next = structuredClone(state);
+      next.status = 'complete';
+      next.result = { winnerId: null, type: 'draw', text: 'Match drawn' };
       return next;
     }
 
@@ -779,10 +997,12 @@ export function runRate(runs, legalBalls) {
 export function ballsRemaining(state) {
   const inn = currentInnings(state);
   if (!inn) return 0;
+  if (state.config.format === 'test') return null; // unlimited overs
   return Math.max(0, state.config.totalOvers * 6 - inn.legalBalls);
 }
 
 export function requiredRunRate(state) {
+  if (state.config.format === 'test') return null; // no over limit, no required rate
   if (state.inningsIndex !== 1 || state.target == null) return null;
   const inn = currentInnings(state);
   const need = state.target - inn.runs;
@@ -830,6 +1050,11 @@ export function getMatchContext(state) {
 
   const wktsLeft = maxWickets(state.config) - inn.wickets;
   const currentBowler = getCurrentBowler(inn);
+  const isTest = state.config.format === 'test';
+  // A chase is the final innings of a Test, or the 2nd innings of a limited game.
+  const chasing =
+    state.target != null && (isTest ? isFinalTestInnings(state) : state.inningsIndex === 1);
+  const score = inningsScore(inn, state.config); // scoring-aware (runs or survival points)
   const ctx = {
     battingTeamId: inn.battingTeamId,
     battingTeamName: teamName(state, inn.battingTeamId),
@@ -844,14 +1069,27 @@ export function getMatchContext(state) {
     totalOvers: state.config.totalOvers,
     crr: runRate(inn.runs, inn.legalBalls),
     extras: inn.extras,
-    isSecondInnings: state.inningsIndex === 1,
+    isSecondInnings: chasing,
     target: state.target,
     ballsRemaining: ballsRemaining(state),
     rrr: requiredRunRate(state),
-    runsNeeded:
-      state.inningsIndex === 1 && state.target != null
-        ? Math.max(0, state.target - inn.runs)
-        : null,
+    runsNeeded: chasing ? Math.max(0, state.target - score) : null,
+    // ---- Test format context (null for limited-overs games) ----
+    test: isTest
+      ? {
+          scoring: state.config.scoring,
+          points: inn.timeline.length, // this innings' survival points
+          score, // headline score for this innings (runs or points)
+          inningsNumber: state.inningsIndex + 1,
+          totalInnings: totalTestInnings(state.config),
+          isFinalInnings: isFinalTestInnings(state),
+          battingTotal: teamTotal(state, inn.battingTeamId),
+          bowlingTotal: teamTotal(state, inn.bowlingTeamId),
+          lead: teamTotal(state, inn.battingTeamId) - teamTotal(state, inn.bowlingTeamId),
+          canDeclare: inn.legalBalls > 0 && !isFinalTestInnings(state),
+          followOnAvailable: followOnAvailable(state),
+        }
+      : null,
     striker: getBatsman(inn, inn.strikerId),
     nonStriker: inn.nonStrikerId ? getBatsman(inn, inn.nonStrikerId) : null,
     // Last 10 deliveries (most recent last) for the scoreboard ball-by-ball strip.

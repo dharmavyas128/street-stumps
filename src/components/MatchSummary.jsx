@@ -16,7 +16,7 @@ import {
  */
 export default function MatchSummary({ state, footer, matchLabel }) {
   const { result, innings, config } = state;
-  const tie = result?.type === 'tie';
+  const tie = result?.type === 'tie' || result?.type === 'draw';
   const awards = computeAwards(state);
   const isFinal = matchLabel === 'Final';
 

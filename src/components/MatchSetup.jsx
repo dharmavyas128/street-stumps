@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { Swords, Users, Timer, UserMinus, Shield, Zap, ChevronRight, Repeat2 } from 'lucide-react';
+import { Swords, Users, Timer, UserMinus, Shield, Zap, ChevronRight, Repeat2, Infinity as InfinityIcon, Hash, Footprints, Layers } from 'lucide-react';
 
 /**
  * MatchSetup — Step 1 of the pre-match wizard: the "Rule Bender" form.
  * Collects team names + bendable rules, then advances to player naming.
  * (Who bats first is decided later by the toss.)
+ *
+ * `format` switches the form between limited-overs and Test (each side bats
+ * up to twice, no over limit, optional survival scoring + follow-on).
  */
-export default function MatchSetup({ initial, onNext, showSeriesLength = false, nextLabel = 'Next: Name Players' }) {
+export default function MatchSetup({ initial, onNext, showSeriesLength = false, format = 'limited', nextLabel = 'Next: Name Players' }) {
+  const isTest = format === 'test';
   const [form, setForm] = useState({
     teamAName: '',
     teamBName: '',
@@ -16,7 +20,12 @@ export default function MatchSetup({ initial, onNext, showSeriesLength = false, 
     sharedPlayers: false,
     retirementThreshold: 0, // 0 = off
     bestOf: 3,
+    // Test-only (ignored by limited-overs games)
+    inningsPerSide: 2,
+    scoring: 'runs',
+    followOn: { enabled: false, gap: 100 },
     ...initial,
+    format,
   });
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
@@ -65,18 +74,94 @@ export default function MatchSetup({ initial, onNext, showSeriesLength = false, 
         )}
       </section>
 
+      {/* Test format options */}
+      {isTest && (
+        <section className="glass p-5">
+          <Legend icon={Layers} title="Test Rules" tint="neon" />
+
+          <div className="mt-4">
+            <Label icon={Layers}>Innings per side</Label>
+            <SegToggle
+              options={[
+                { value: 1, label: 'One each' },
+                { value: 2, label: 'Two each' },
+              ]}
+              value={form.inningsPerSide}
+              onChange={(v) => set({ inningsPerSide: v })}
+            />
+            <p className="mt-1.5 px-1 text-[11px] text-slate-500">
+              {form.inningsPerSide === 2
+                ? 'Both teams bat twice — 4 innings in all.'
+                : 'Each team bats once — 2 innings in all.'}
+            </p>
+          </div>
+
+          <div className="mt-4">
+            <Label icon={form.scoring === 'survival' ? Footprints : Hash}>Scoring</Label>
+            <SegToggle
+              options={[
+                { value: 'runs', label: 'Runs' },
+                { value: 'survival', label: 'Survival' },
+              ]}
+              value={form.scoring}
+              onChange={(v) => set({ scoring: v })}
+            />
+            <p className="mt-1.5 px-1 text-[11px] text-slate-500">
+              {form.scoring === 'survival'
+                ? 'Every delivery faced is worth 1 point — survive to win. Runs are still recorded on the scorecard.'
+                : 'Standard scoring — runs decide the result.'}
+            </p>
+          </div>
+
+          {form.inningsPerSide === 2 && (
+            <div className="mt-4">
+              <ToggleRow
+                icon={Repeat2}
+                title="Follow-on"
+                subtitle="Leader can make the trailing side bat again"
+                checked={form.followOn.enabled}
+                onChange={(v) => set({ followOn: { ...form.followOn, enabled: v } })}
+              />
+              {form.followOn.enabled && (
+                <div className="mt-3">
+                  <Stepper
+                    icon={Repeat2}
+                    label={`Follow-on if lead ≥ (${form.scoring === 'survival' ? 'points' : 'runs'})`}
+                    value={form.followOn.gap}
+                    min={1}
+                    max={400}
+                    step={5}
+                    onChange={(v) => set({ followOn: { ...form.followOn, gap: v } })}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Rule Bender */}
       <section className="glass p-5">
         <Legend icon={Zap} title="Rule Bender" tint="amber" />
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <Stepper
-            icon={Timer}
-            label="Overs"
-            value={form.totalOvers}
-            min={1}
-            max={50}
-            onChange={(v) => set({ totalOvers: v })}
-          />
+          {isTest ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
+              <Label icon={InfinityIcon}>Overs</Label>
+              <div className="flex items-center justify-center gap-2 pt-1.5">
+                <InfinityIcon size={26} className="text-slate-200" />
+                <span className="text-sm font-semibold text-slate-300">Unlimited</span>
+              </div>
+            </div>
+          ) : (
+            <Stepper
+              icon={Timer}
+              label="Overs"
+              value={form.totalOvers}
+              min={1}
+              max={50}
+              onChange={(v) => set({ totalOvers: v })}
+            />
+          )}
           <Stepper
             icon={Users}
             label="Players / side"
@@ -204,9 +289,9 @@ function SegToggle({ options, value, onChange, tint = 'neon' }) {
   );
 }
 
-function Stepper({ icon: Icon, label, value, min, max, onChange }) {
-  const dec = () => onChange(Math.max(min, value - 1));
-  const inc = () => onChange(Math.min(max, value + 1));
+function Stepper({ icon: Icon, label, value, min, max, step = 1, onChange }) {
+  const dec = () => onChange(Math.max(min, value - step));
+  const inc = () => onChange(Math.min(max, value + step));
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
       <Label icon={Icon}>{label}</Label>

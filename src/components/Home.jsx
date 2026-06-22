@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Swords, Trophy, ListOrdered, History, ChevronRight, Clock, Users, BarChart3, Bell, Radio, Eye, X, Lock, UserPlus } from 'lucide-react';
+import { Swords, Trophy, ListOrdered, History, ChevronRight, Clock, Users, BarChart3, Bell, Radio, Eye, X, Lock, UserPlus, Hourglass } from 'lucide-react';
 import Logo from './Logo';
 import { getMatchContext } from '../engine/matchEngine';
 import StadiumBackdrop from './StadiumBackdrop';
@@ -15,6 +15,7 @@ export default function Home({
   onPlayQuick,
   onPlaySeries,
   onPlayTournament,
+  onPlayTest,
   onOpenPlayers,
   onOpenLeaderboard,
   onOpenHistory,
@@ -322,6 +323,17 @@ export default function Home({
           onClick={isGuest ? lock : onPlayTournament}
           isLocked={isGuest}
         />
+
+        <ModeCard
+          icon={Hourglass}
+          title="Test"
+          tag="The long game"
+          variant="test"
+          delay={270}
+          tourId="mode-test"
+          description="Two innings a side, unlimited overs. Declare, enforce the follow-on, or shake hands on a draw."
+          onClick={onPlayTest}
+        />
         </div>{/* end relative space-y-3 */}
       </div>{/* end relative stadium wrapper */}
 
@@ -457,6 +469,14 @@ const VARIANT_CONFIG = {
     tag: 'bg-alert/15 text-alert',
     chevron: 'text-alert',
   },
+  // Test wears cricket "whites" — a clean slate/white treatment that sets the
+  // long format apart from the three coloured limited-overs cards.
+  test: {
+    card: 'border-white/25 hover:border-white/45 hover:bg-white/[0.05]',
+    icon: 'bg-white/10 text-slate-100 ring-white/25',
+    tag: 'bg-white/10 text-slate-200',
+    chevron: 'text-slate-200',
+  },
 };
 
 /* Decorative motifs painted absolutely inside each card — subtle but distinct. */
@@ -513,6 +533,24 @@ function ModeDecoration({ variant }) {
           <svg viewBox="0 0 44 32" className="h-8 w-11 text-alert" fill="currentColor">
             <path d="M2 28 L2 20 L11 7 L17 17 L22 2 L27 17 L33 7 L42 20 L42 28 Z" />
             <rect x="2" y="28" width="40" height="3.5" rx="1.75" />
+          </svg>
+        </div>
+      </>
+    );
+  }
+  if (variant === 'test') {
+    return (
+      <>
+        {/* Left white stripe */}
+        <div className="pointer-events-none absolute left-0 top-4 bottom-4 w-[2px] rounded-r-full bg-white/35" />
+        {/* Top-right stumps motif — three uprights + bails */}
+        <div className="pointer-events-none absolute right-4 top-3.5 opacity-[0.18]">
+          <svg viewBox="0 0 28 30" className="h-7 w-6 text-slate-100" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="6" y1="8" x2="6" y2="28" />
+            <line x1="14" y1="8" x2="14" y2="28" />
+            <line x1="22" y1="8" x2="22" y2="28" />
+            <line x1="3" y1="8" x2="14" y2="6" />
+            <line x1="14" y1="6" x2="25" y2="8" />
           </svg>
         </div>
       </>

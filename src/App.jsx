@@ -25,6 +25,7 @@ import MatchHistory from './components/MatchHistory';
 import MyPlayers from './components/MyPlayers';
 import Leaderboard from './components/Leaderboard';
 import MatchSetup from './components/MatchSetup';
+import TestModePicker from './components/TestModePicker';
 import PlayerSetup from './components/PlayerSetup';
 import TossScreen from './components/TossScreen';
 import TournamentSetup from './components/TournamentSetup';
@@ -187,7 +188,7 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     let payload = null;
-    if (view === 'quick' && status !== 'setup') {
+    if ((view === 'quick' || view === 'test') && status !== 'setup') {
       payload = { kind: 'match', data: { state: engine.state } };
     } else if ((view === 'series' || view === 'tournament') && comp.comp) {
       const data = { comp: comp.comp };
@@ -482,6 +483,7 @@ export default function App() {
             onPlayQuick={() => enter('quick')}
             onPlaySeries={() => enter('series')}
             onPlayTournament={() => enter('tournament')}
+            onPlayTest={() => enter('test')}
             onOpenPlayers={() => setView('players')}
             onOpenLeaderboard={() => setView('leaderboard')}
             onOpenHistory={() => setView('history')}
@@ -552,7 +554,7 @@ export default function App() {
           </>
         )}
 
-        {view === 'quick' && status !== 'setup' && (
+        {(view === 'quick' || view === 'test') && status !== 'setup' && (
           <MatchView
             engine={engine}
             onSaveForLater={saveQuickForLater}
@@ -597,6 +599,44 @@ export default function App() {
               )
             }
           />
+        )}
+
+        {/* Test: mode picker → rules → players → toss → play */}
+        {view === 'test' && status === 'setup' && !draft.testMode && (
+          <TestModePicker
+            onBack={goHome}
+            onPick={(mode) => {
+              setDraft((d) => ({ ...d, format: 'test', testMode: mode }));
+              setStep('setup');
+            }}
+          />
+        )}
+
+        {view === 'test' && status === 'setup' && draft.testMode && (
+          <>
+            <WizardProgress steps={QUICK_STEPS} current={step} />
+            {step === 'setup' && <MatchSetup initial={draft} onNext={handleSetupNext} format="test" />}
+            {step === 'players' && (
+              <PlayerSetup
+                teamAName={teamA}
+                teamBName={teamB}
+                playersPerTeam={playersPerTeam}
+                initialPicks={draft.picks}
+                initialCaptains={draft.captains}
+                sharedPlayers={!!draft.sharedPlayers}
+                onBack={() => setStep('setup')}
+                onNext={handlePlayersNext}
+              />
+            )}
+            {step === 'toss' && (
+              <TossScreen
+                teamAName={teamA}
+                teamBName={teamB}
+                onBack={() => setStep('players')}
+                onComplete={handleQuickToss}
+              />
+            )}
+          </>
         )}
 
         {/* Series setup: rules (+ length) → players */}

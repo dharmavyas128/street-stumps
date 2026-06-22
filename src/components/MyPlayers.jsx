@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, Trash2, Users, Hand, Disc3, Loader2 } from 'lucide-react';
 import { loadPlayers, addPlayer, deletePlayer } from '../storage';
+import { listFriends } from '../data/db';
+import { parseConfig } from '../avatars';
 import PlayerForm from './PlayerForm';
 import PlayerStatsSheet from './PlayerStatsSheet';
+import DiceBearAvatar from './DiceBearAvatar';
 
 /**
  * MyPlayers — manage a personal roster: add players (name, batting hand,
@@ -12,7 +15,24 @@ export default function MyPlayers({ onBack, onChange }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [viewPlayer, setViewPlayer] = useState(null); // { name, subtitle } | null
+  const [viewPlayer, setViewPlayer] = useState(null); // { name, subtitle, avatar } | null
+  // Roster players don't store an avatar, so we borrow a matching friend's
+  // avatar by name (lowercased name -> avatar config string).
+  const [friendAvatars, setFriendAvatars] = useState({});
+
+  const avatarFor = (name) => friendAvatars[(name || '').trim().toLowerCase()] || null;
+
+  useEffect(() => {
+    listFriends()
+      .then((fr) => {
+        const map = {};
+        for (const f of fr) {
+          if (f.avatar) map[(f.name || '').trim().toLowerCase()] = f.avatar;
+        }
+        setFriendAvatars(map);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let on = true;
@@ -97,13 +117,20 @@ export default function MyPlayers({ onBack, onChange }) {
                   setViewPlayer({
                     name: p.name,
                     subtitle: `${p.battingHand === 'left' ? 'Left-hand bat' : 'Right-hand bat'} · ${p.bowlingStyle}`,
+                    avatar: avatarFor(p.name),
                   })
                 }
                 className="btn-press flex min-w-0 flex-1 items-center gap-3 text-left"
               >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-neon/10 text-neon ring-1 ring-neon/20 text-sm font-bold">
-                  {p.name.charAt(0).toUpperCase()}
-                </span>
+                {parseConfig(avatarFor(p.name)) ? (
+                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl ring-1 ring-neon/20">
+                    <DiceBearAvatar config={avatarFor(p.name)} size={40} className="h-full w-full" />
+                  </div>
+                ) : (
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-neon/10 text-neon ring-1 ring-neon/20 text-sm font-bold">
+                    {p.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-white">{p.name}</p>
                   <p className="flex items-center gap-2 text-[11px] text-slate-400">

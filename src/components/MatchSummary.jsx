@@ -1,4 +1,4 @@
-import { Trophy, Handshake, Crown, Star, Zap, Disc3, Hand, Sparkles } from 'lucide-react';
+import { Trophy, Handshake, Crown, Star, Zap, Disc3, Hand, Bot } from 'lucide-react';
 import {
   oversText,
   maxWickets,
@@ -8,6 +8,7 @@ import {
   computeAwards,
   BATSMAN_STATUS,
 } from '../engine/matchEngine';
+import { generateRecap } from '../engine/recap';
 
 /**
  * MatchSummary — final result banner + awards + both innings scorecards.
@@ -18,6 +19,7 @@ export default function MatchSummary({ state, footer, matchLabel }) {
   const { result, innings, config } = state;
   const tie = result?.type === 'tie' || result?.type === 'draw';
   const awards = computeAwards(state);
+  const recap = generateRecap(state);
   const isFinal = matchLabel === 'Final';
   const isPairs = !!config?.pairs; // Pairs OR Single — both show final standings
 
@@ -72,6 +74,9 @@ export default function MatchSummary({ state, footer, matchLabel }) {
       {isPairs && result?.standings && (
         <PairsStandingsCard standings={result.standings} scoring={config.scoring} winnerId={result.winnerId} />
       )}
+
+      {/* AI Summary */}
+      {recap && <AISummaryCard recap={recap} />}
 
       {/* Achievements */}
       {awards && <AwardsCard awards={awards} />}
@@ -178,6 +183,28 @@ function InningsCard({ inn, config, index, state }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------------- AI Summary ---------------- */
+
+function AISummaryCard({ recap }) {
+  return (
+    <div className="glass relative overflow-hidden p-5">
+      <div className="pointer-events-none absolute inset-x-0 -top-10 h-24 bg-azure/10 blur-3xl" />
+      <div className="relative mb-3 flex items-center gap-2">
+        <span className="grid h-8 w-8 place-items-center rounded-xl bg-azure/15 text-azure ring-1 ring-azure/30">
+          <Bot size={16} />
+        </span>
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-200">
+          AI Summary
+        </h3>
+        <span className="ml-auto rounded-full bg-azure/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-azure ring-1 ring-azure/20">
+          Auto
+        </span>
+      </div>
+      <p className="relative text-sm leading-relaxed text-slate-300">{recap}</p>
     </div>
   );
 }

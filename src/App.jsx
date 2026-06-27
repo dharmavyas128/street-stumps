@@ -234,17 +234,17 @@ export default function App() {
     if (tourActive && v === 'quick') setDraft(DEMO_TOUR_DRAFT);
   };
 
-  // Auto-launch tour once for first-time users (after profile setup completes).
+  // Auto-launch tour only for brand-new signups (account < 2 minutes old).
   const tourAutoLaunched = useRef(false);
   useEffect(() => {
-    if (!profile || isGuest || tourAutoLaunched.current) return;
+    if (!profile || !user || isGuest || tourAutoLaunched.current) return;
     tourAutoLaunched.current = true;
-    if (!localStorage.getItem('ss-tour-seen')) {
-      localStorage.setItem('ss-tour-seen', '1');
+    const ageMs = Date.now() - new Date(user.created_at).getTime();
+    if (ageMs < 2 * 60 * 1000) {
       const t = setTimeout(() => { setTourStep(0); setTourActive(true); }, 400);
       return () => clearTimeout(t);
     }
-  }, [profile, isGuest]);
+  }, [profile, user, isGuest]);
 
   // ---- Guided tour controls ----
   const startTour = () => {

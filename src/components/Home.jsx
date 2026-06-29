@@ -24,6 +24,8 @@ export default function Home({
   requestCount = 0,
   liveGames = [],
   onWatch,
+  sharedWithMe = [],
+  onCoScore,
   completedFriendGames = [],
   onViewCompleted,
   onDismissCompleted,
@@ -189,6 +191,40 @@ export default function Home({
           Backyard to Box Office
         </p>
       </div>
+
+      {/* Invited to score — friends who handed me co-scoring rights */}
+      {sharedWithMe.length > 0 && (
+        <div
+          className="space-y-3 animate-pop-in [animation-fill-mode:backwards]"
+          style={{ animationDelay: '80ms' }}
+        >
+          <p className="flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Radio size={12} className="text-azure" />
+            Invited to score
+          </p>
+          {sharedWithMe.map((g) => (
+            <button
+              key={g.game_id}
+              onClick={() => onCoScore?.(g)}
+              className="btn-press lift group card-action flex w-full items-center gap-3 border-azure/30 p-4 text-left"
+            >
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-azure/15 text-azure ring-1 ring-azure/30">
+                <Radio size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="truncate text-sm font-bold text-white">{g.owner_name}</span>
+                  <span className="rounded-full bg-azure/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-azure">
+                    Co-score
+                  </span>
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-slate-400">{liveLabel(g)}</span>
+              </span>
+              <ChevronRight size={18} className="shrink-0 text-azure transition group-hover:translate-x-0.5" />
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Live now — friends' in-progress games */}
       {liveGames.length > 0 && (

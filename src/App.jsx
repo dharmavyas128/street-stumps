@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Home as HomeIcon, Check, Save, Trash2, ArrowRight, Loader2, Trophy } from 'lucide-react';
+import { Home as HomeIcon, Check, Save, Trash2, ArrowRight, Loader2, Trophy, Radio, ChevronLeft } from 'lucide-react';
 import { useMatchEngine } from './hooks/useMatchEngine';
 import { useCompetition } from './hooks/useCompetition';
 import { useAuth } from './auth/AuthContext';
@@ -12,7 +12,16 @@ import {
   loadMatches,
   loadPlayers,
 } from './storage';
-import { listFriendRequests, subscribeToFriendships, listFriendsLiveGames, subscribeToGames } from './data/db';
+import {
+  listFriendRequests,
+  subscribeToFriendships,
+  listFriendsLiveGames,
+  subscribeToGames,
+  shareMatchScoring,
+  unshareMatchScoring,
+  coScoreUpdate,
+  listMatchesSharedWithMe,
+} from './data/db';
 import { wasPlayerInGame } from './utils/gameHelpers';
 import Logo from './components/Logo';
 import StarField from './components/StarField';
@@ -35,6 +44,7 @@ import TournamentPlayers from './components/TournamentPlayers';
 import CompetitionHub from './components/CompetitionHub';
 import MatchView from './components/MatchView';
 import WatchView from './components/WatchView';
+import ShareScoringSheet from './components/ShareScoringSheet';
 import AwardCeremony from './components/AwardCeremony';
 import TourOverlay from './tour/TourOverlay';
 import { TOUR_STEPS, DEMO_TOUR_DRAFT } from './tour/tourSteps';
@@ -85,6 +95,19 @@ export default function App() {
   const [liveGames, setLiveGames] = useState([]);    // friends' live games
   const [watchGame, setWatchGame] = useState(null);  // game being watched
   const [watchEnded, setWatchEnded] = useState(false);
+  // Shared scoring: games a friend invited me to co-score, and (when I'm
+  // co-scoring) which game + owner I'm currently helping score.
+  const [sharedWithMe, setSharedWithMe] = useState([]);
+  const [coScoring, setCoScoring] = useState(null);   // { gameId, ownerName } | null
+  // Owner side: the friend I've granted co-scoring on the active game.
+  const [sharedScorer, setSharedScorer] = useState(null); // { id, name } | null
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  // A stable per-session id so the two co-scoring devices can tell their own
+  // realtime echoes apart from the other scorer's edits (last-write-wins).
+  const clientIdRef = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36));
+  // Set just before applying a remote state into the engine, so the autosave
+  // effect skips one cycle and we don't echo what we just received.
+  const applyingRemoteRef = useRef(false);
   // Guided product tour (spotlight walkthrough launched from the profile sheet).
   const [tourActive, setTourActive] = useState(false);
   const [tourStep, setTourStep] = useState(0);
@@ -100,6 +123,12 @@ export default function App() {
   });
   const watchGameRef = useRef(null);
   useEffect(() => { watchGameRef.current = watchGame; }, [watchGame]);
+  // Mirror the active-scoring identifiers into refs so the realtime callback
+  // (subscribed once) always reads the current values.
+  const coScoringRef = useRef(null);
+  useEffect(() => { coScoringRef.current = coScoring; }, [coScoring]);
+  const resumeIdRef = useRef(null);
+  useEffect(() => { resumeIdRef.current = resumeId; }, [resumeId]);
 
   // Compact the header once scrolled, and feed scroll position to the
   // background layers (via the --sy CSS var) for a very slow parallax drift.
@@ -136,8 +165,11 @@ export default function App() {
   const refreshLiveGames = async () => {
     try { setLiveGames(await listFriendsLiveGames()); } catch { /* ignore */ }
   };
+  const refreshSharedWithMe = async () => {
+    try { setSharedWithMe(await listMatchesSharedWithMe()); } catch { /* ignore */ }
+  };
   useEffect(() => {
-    if (user) { refreshCount(); refreshRequests(); refreshLiveGames(); }
+    if (user) { refreshCount(); refreshRequests(); refreshLiveGames(); refreshSharedWithMe(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -159,7 +191,24 @@ export default function App() {
     let timer;
     const unsubscribe = subscribeToGames((payload) => {
       clearTimeout(timer);
-      timer = setTimeout(refreshLiveGames, 400);
+      timer = setTimeout(() => { refreshLiveGames(); refreshSharedWithMe(); }, 400);
+
+      // --- Shared scoring sync: apply the OTHER scorer's edits to my engine ---
+      const row = payload.new;
+      if (payload.eventType !== 'DELETE' && row?.id) {
+        const cs = coScoringRef.current;
+        const activeId = cs ? cs.gameId : resumeIdRef.current;
+        const isActive = activeId && row.id === activeId;
+        const incomingState = row.data?.state;
+        const by = row.data?._sync?.by;
+        // Only apply if it's my active game, has a state, and came from the
+        // other device (not my own echo). Then skip the next autosave cycle.
+        if (isActive && incomingState && by && by !== clientIdRef.current) {
+          applyingRemoteRef.current = true;
+          engine.loadState(incomingState);
+        }
+      }
+
       const wg = watchGameRef.current;
       if (!wg) return;
       if (payload.eventType === 'DELETE') {
@@ -176,7 +225,6 @@ export default function App() {
         }
         return;
       }
-      const row = payload.new;
       if (row?.id === wg.game_id) {
         setWatchGame({ ...wg, data: row.data, kind: row.kind, updated_at: row.updated_at });
       }
@@ -185,15 +233,32 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Owner side: while actively playing, auto-save state to the in-progress row
-  // (debounced) so friends watching get near-real-time ball-by-ball updates.
+  // Auto-save state to the in-progress row (debounced) so watchers — and a
+  // co-scorer — get near-real-time ball-by-ball updates. Every write carries a
+  // `_sync` tag (this device's id) so the two co-scoring devices can ignore
+  // their own echoes when the update streams back over realtime.
   useEffect(() => {
     if (!user) return;
+    // Just applied a remote scorer's state — don't echo it straight back.
+    if (applyingRemoteRef.current) { applyingRemoteRef.current = false; return; }
+
+    const sync = { by: clientIdRef.current, at: Date.now() };
+
+    // Co-scorer path: push score updates through the security-definer RPC,
+    // which only touches the data (never ownership). No new row is ever created.
+    if (coScoring) {
+      if (status === 'setup') return;
+      const t = setTimeout(() => {
+        coScoreUpdate(coScoring.gameId, { state: engine.state, _sync: sync }).catch(() => {});
+      }, 700);
+      return () => clearTimeout(t);
+    }
+
     let payload = null;
     if ((view === 'quick' || view === 'test') && status !== 'setup') {
-      payload = { kind: 'match', data: { state: engine.state } };
+      payload = { kind: 'match', data: { state: engine.state, _sync: sync } };
     } else if ((view === 'series' || view === 'tournament') && comp.comp) {
-      const data = { comp: comp.comp };
+      const data = { comp: comp.comp, _sync: sync };
       if (activeFixture && status !== 'setup') data.activeMatchState = engine.state;
       payload = { kind: comp.comp.kind, data };
     }
@@ -206,11 +271,54 @@ export default function App() {
     }, 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, view, status, engine.state, comp.comp, resumeId]);
+  }, [user, view, status, engine.state, comp.comp, resumeId, coScoring]);
 
   const openProfile = (tab = 'profile') => { setSheetTab(tab); setProfileSheetOpen(true); };
   const watchGameOpen = (g) => { setWatchGame(g); setWatchEnded(false); setView('watch'); };
   const exitWatch = () => { setWatchGame(null); setWatchEnded(false); setView('home'); refreshLiveGames(); };
+
+  // ---- Shared scoring ----
+  // Owner: grant a friend co-scoring on the active in-progress game. The row
+  // must exist first (autosave creates it); force a save if it hasn't yet.
+  const shareScoring = async (friend) => {
+    let id = resumeId;
+    if (!id) {
+      const rec = await saveProgress({
+        id: null,
+        kind: 'match',
+        data: { state: engine.state, _sync: { by: clientIdRef.current, at: Date.now() } },
+      });
+      id = rec.id;
+      setResumeId(id);
+    }
+    await shareMatchScoring(id, friend.friend_id);
+    setSharedScorer({ id: friend.friend_id, name: friend.name });
+  };
+  const revokeScoring = async () => {
+    if (resumeId) await unshareMatchScoring(resumeId).catch(() => {});
+    setSharedScorer(null);
+  };
+
+  // Co-scorer: open a game a friend invited me to score. Load their current
+  // state into the engine and drive it through the normal live MatchView.
+  const startCoScore = (game) => {
+    const state = game.data?.state;
+    if (!state) return;
+    resetMatch();
+    comp.reset();
+    setResumeId(null);
+    setSharedScorer(null);
+    setWatchGame(null);
+    setCoScoring({ gameId: game.game_id, ownerName: game.owner_name });
+    engine.loadState(state);
+    setView('quick');
+  };
+  const exitCoScore = () => {
+    setCoScoring(null);
+    engine.reset();
+    setView('home');
+    refreshSharedWithMe();
+  };
 
   const resetMatch = () => {
     engine.reset();
@@ -221,13 +329,18 @@ export default function App() {
     resetMatch();
     comp.reset();
     setResumeId(null);
+    setSharedScorer(null);
+    setCoScoring(null);
     refreshCount();
+    refreshSharedWithMe();
     setView('home');
   };
   const enter = (v) => {
     resetMatch();
     comp.reset();
     setResumeId(null);
+    setSharedScorer(null);
+    setCoScoring(null);
     setView(v);
     // During the tour, pre-fill the Quick Match wizard with demo data so each
     // screen looks complete without the user typing. No real match is created.
@@ -479,6 +592,14 @@ export default function App() {
         onStartTutorial={startTour}
       />
 
+      <ShareScoringSheet
+        open={shareSheetOpen}
+        sharedScorer={sharedScorer}
+        onShare={shareScoring}
+        onRevoke={revokeScoring}
+        onClose={() => setShareSheetOpen(false)}
+      />
+
       <main className="flex-1">
         {view === 'home' && (
           <Home
@@ -494,6 +615,8 @@ export default function App() {
             requestCount={requestCount}
             liveGames={liveGames}
             onWatch={watchGameOpen}
+            sharedWithMe={sharedWithMe}
+            onCoScore={startCoScore}
             completedFriendGames={completedFriendGames}
             onViewCompleted={(g) => { setWatchGame(g); setWatchEnded(true); setView('watch'); }}
             onDismissCompleted={(gameId) =>
@@ -557,50 +680,93 @@ export default function App() {
         )}
 
         {(view === 'quick' || view === 'test') && status !== 'setup' && (
-          <MatchView
-            engine={engine}
-            onSaveForLater={saveQuickForLater}
-            savingForLater={savingForLater}
-            completeFooter={
-              isGuest ? (
-                <div className="space-y-2">
-                  <p className="text-center text-xs text-slate-400">
-                    Create a free account to save this scorecard
-                  </p>
-                  <button
-                    onClick={exitGuest}
-                    className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
-                  >
-                    <Save size={18} strokeWidth={2.5} />
-                    Sign up & save
-                  </button>
-                  <button
-                    onClick={goHome}
-                    className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] py-3 text-sm font-semibold text-slate-400"
-                  >
-                    Discard & exit
-                  </button>
+          <>
+            {/* Co-scorer banner — when I'm helping score a friend's match */}
+            {coScoring && (
+              <div className="mb-3 flex items-center gap-3 rounded-2xl border border-azure/30 bg-azure/[0.08] p-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-azure/15 text-azure ring-1 ring-azure/30">
+                  <Radio size={16} className="animate-pulse-glow" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-azure">Co-scoring</p>
+                  <p className="truncate text-sm font-bold text-white">{coScoring.ownerName}'s match</p>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={goHome}
-                    className="btn-press flex items-center justify-center gap-2 rounded-2xl border border-crimson/40 bg-crimson/15 py-4 text-sm font-bold text-crimson-soft"
-                  >
-                    <Trash2 size={18} />
-                    Delete
-                  </button>
-                  <button
-                    onClick={handleSaveGame}
-                    className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
-                  >
-                    <Save size={18} strokeWidth={2.5} />
-                    Save Game
-                  </button>
-                </div>
-              )
-            }
-          />
+              </div>
+            )}
+            {/* Share-scoring bar — owner only, while a real (non-guest) match runs */}
+            {!coScoring && !isGuest && (
+              <div className="mb-3 flex justify-end">
+                <button
+                  onClick={() => setShareSheetOpen(true)}
+                  className={`btn-press flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                    sharedScorer
+                      ? 'border-neon/40 bg-neon/[0.08] text-neon'
+                      : 'border-white/10 bg-white/[0.05] text-slate-300 hover:border-azure/40 hover:text-azure'
+                  }`}
+                >
+                  <Radio size={14} />
+                  {sharedScorer ? `Sharing with ${sharedScorer.name}` : 'Share scoring'}
+                </button>
+              </div>
+            )}
+            <MatchView
+              engine={engine}
+              onSaveForLater={coScoring ? undefined : saveQuickForLater}
+              savingForLater={savingForLater}
+              completeFooter={
+                coScoring ? (
+                  <div className="space-y-2">
+                    <p className="text-center text-xs text-slate-400">
+                      {coScoring.ownerName} will save this scorecard. Thanks for scoring!
+                    </p>
+                    <button
+                      onClick={exitCoScore}
+                      className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+                    >
+                      <ChevronLeft size={18} strokeWidth={2.5} />
+                      Back to home
+                    </button>
+                  </div>
+                ) : isGuest ? (
+                  <div className="space-y-2">
+                    <p className="text-center text-xs text-slate-400">
+                      Create a free account to save this scorecard
+                    </p>
+                    <button
+                      onClick={exitGuest}
+                      className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+                    >
+                      <Save size={18} strokeWidth={2.5} />
+                      Sign up & save
+                    </button>
+                    <button
+                      onClick={goHome}
+                      className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] py-3 text-sm font-semibold text-slate-400"
+                    >
+                      Discard & exit
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={goHome}
+                      className="btn-press flex items-center justify-center gap-2 rounded-2xl border border-crimson/40 bg-crimson/15 py-4 text-sm font-bold text-crimson-soft"
+                    >
+                      <Trash2 size={18} />
+                      Delete
+                    </button>
+                    <button
+                      onClick={handleSaveGame}
+                      className="btn-press flex items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-base font-bold text-midnight shadow-glow-green"
+                    >
+                      <Save size={18} strokeWidth={2.5} />
+                      Save Game
+                    </button>
+                  </div>
+                )
+              }
+            />
+          </>
         )}
 
         {/* Test: mode picker → rules → players → toss → play */}

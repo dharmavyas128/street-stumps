@@ -348,3 +348,108 @@ begin
   order  by g.updated_at desc;
 end;
 $$;
+
+-- ===========================================================================
+-- Shared scoring — the owner may grant ONE friend co-scoring rights on a
+-- single in-progress game. The co-scorer can read the live row and push score
+-- updates (so both devices score the same match), but can never save it as a
+-- finished game, delete it, or take ownership. All co-scorer writes go through
+-- a SECURITY DEFINER RPC that only touches the score data — never user_id or
+-- shared_scorer_id — so a crafted client cannot escalate.
+-- ===========================================================================
+
+alter table public.games
+  add column if not exists shared_scorer_id uuid
+    references auth.users (id) on delete set null;
+
+create index if not exists games_shared_scorer_idx
+  on public.games (shared_scorer_id) where shared_scorer_id is not null;
+
+-- The co-scorer may READ the shared row (needed for the initial load and to
+-- receive ball-by-ball realtime updates). This widens SELECT only.
+drop policy if exists "Co-scorer can read shared games" on public.games;
+create policy "Co-scorer can read shared games"
+  on public.games for select
+  using (shared_scorer_id = auth.uid());
+
+-- Owner grants co-scoring to an accepted friend. Verifies ownership + that the
+-- game is still in progress + that the two are actually friends.
+create or replace function public.share_match_scoring(p_game_id uuid, p_friend uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare me uuid := auth.uid();
+begin
+  if not exists (
+    select 1 from public.games
+     where id = p_game_id and user_id = me and status = 'in_progress'
+  ) then
+    raise exception 'not your in-progress game';
+  end if;
+  if not exists (
+    select 1 from public.friendships f
+     where f.status = 'accepted'
+       and ( (f.requester_id = me and f.addressee_id = p_friend)
+          or (f.addressee_id = me and f.requester_id = p_friend) )
+  ) then
+    raise exception 'can only share with an accepted friend';
+  end if;
+  update public.games set shared_scorer_id = p_friend, updated_at = now()
+   where id = p_game_id;
+end;
+$$;
+
+-- Owner revokes co-scoring (clears the column).
+create or replace function public.unshare_match_scoring(p_game_id uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  update public.games set shared_scorer_id = null, updated_at = now()
+   where id = p_game_id and user_id = auth.uid();
+end;
+$$;
+
+-- Co-scorer pushes a score update. Only the caller who is the row's current
+-- shared_scorer may write, and ONLY the data + updated_at change — ownership
+-- and the share grant are untouchable from here.
+create or replace function public.co_score_update(p_game_id uuid, p_data jsonb)
+returns timestamptz
+language plpgsql security definer set search_path = public
+as $$
+declare new_ts timestamptz := now();
+begin
+  update public.games
+     set data = p_data, updated_at = new_ts
+   where id = p_game_id
+     and shared_scorer_id = auth.uid()
+     and status = 'in_progress';
+  if not found then
+    raise exception 'not the co-scorer of an in-progress game';
+  end if;
+  return new_ts;
+end;
+$$;
+
+-- Games shared WITH me to co-score (in-progress), with the owner's name + data.
+create or replace function public.get_matches_shared_with_me()
+returns table (
+  game_id    uuid,
+  owner_id   uuid,
+  owner_name text,
+  kind       text,
+  data       jsonb,
+  updated_at timestamptz
+)
+language plpgsql security definer set search_path = public
+as $$
+begin
+  return query
+  select g.id, g.user_id, p.name, g.kind, g.data, g.updated_at
+  from   public.games g
+  join   public.profiles p on p.user_id = g.user_id
+  where  g.shared_scorer_id = auth.uid()
+    and  g.status = 'in_progress'
+  order  by g.updated_at desc;
+end;
+$$;

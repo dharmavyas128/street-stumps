@@ -32,6 +32,7 @@ function rowToRecord(row) {
     kind: row.kind,
     status: row.status,
     savedAt: row.updated_at || row.created_at,
+    sharedScorerId: row.shared_scorer_id ?? null,
     ...data, // spreads state / comp / activeMatchState
   };
 }
@@ -269,6 +270,50 @@ export function subscribeToFriendships(onChange) {
 export async function listFriendsLiveGames() {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase.rpc('get_friends_live_games');
+  if (error) throw error;
+  return data || [];
+}
+
+// ---------------------------------------------------------------------------
+// Shared scoring — owner grants ONE friend co-scoring rights on a live game
+// ---------------------------------------------------------------------------
+
+/** Owner: grant an accepted friend co-scoring rights on an in-progress game. */
+export async function shareMatchScoring(gameId, friendId) {
+  ensure();
+  const { error } = await supabase.rpc('share_match_scoring', {
+    p_game_id: gameId,
+    p_friend: friendId,
+  });
+  if (error) throw error;
+}
+
+/** Owner: revoke co-scoring on a game. */
+export async function unshareMatchScoring(gameId) {
+  ensure();
+  const { error } = await supabase.rpc('unshare_match_scoring', { p_game_id: gameId });
+  if (error) throw error;
+}
+
+/**
+ * Co-scorer: push a score update to the shared row. Goes through a security
+ * definer RPC that only touches the score data (never ownership), so it safely
+ * enforces "co-scorer can't save/delete/own". Returns the new updated_at.
+ */
+export async function coScoreUpdate(gameId, data) {
+  ensure();
+  const { data: ts, error } = await supabase.rpc('co_score_update', {
+    p_game_id: gameId,
+    p_data: data,
+  });
+  if (error) throw error;
+  return ts;
+}
+
+/** Games shared WITH me to co-score (in-progress), with owner name + data. */
+export async function listMatchesSharedWithMe() {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase.rpc('get_matches_shared_with_me');
   if (error) throw error;
   return data || [];
 }
